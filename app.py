@@ -352,41 +352,76 @@ with tab1:
 
     if submit:
         if not name or not student_id:
-            st.error("이름과 학번을 입력하세요!")
+            st.error("이름과 학번을 반드시 입력해주세요!")
         else:
-            total_score = 0
-            wrong_list = []
-            wrong_q_nums = []
-            
-            for q, info in current_exam_data.items():
-                if user_answers[q] == info['ans']:
-                    total_score += info['score']
-                else:
-                    wrong_list.append(info['type'])
-                    wrong_q_nums.append(str(q))
-            
+            # 1. 먼저 구글 시트 연결해서 중복 체크 (가장 중요!)
             sheet = get_google_sheet_data()
+            is_duplicate = False
+            
             if sheet:
                 try:
-                    wrong_q_str = ", ".join(wrong_q_nums) if wrong_q_nums else "없음"
+                    records = sheet.get_all_records()
+                    df = pd.DataFrame(records)
                     
-                    # [수정] A열에 selected_round(회차) 추가
-                    new_row = [
-                        selected_round, # A열: 회차
-                        student_id,     # B열: ID
-                        name, 
-                        total_score, 
-                        " | ".join(wrong_list), 
-                        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                        wrong_q_str
-                    ]
-                    sheet.append_row(new_row)
-                    
-                    st.balloons()
-                    st.success(f"{name}님, {selected_round} 답안이 제출되었습니다! [이번 결과 조회] 탭에서 확인하세요.")
-                    
+                    # 데이터가 하나라도 있다면 중복 검사 실행
+                    if not df.empty and 'ID' in df.columns and 'Round' in df.columns:
+                        # 문자열로 변환하여 비교 (공백 제거)
+                        df['ID'] = df['ID'].astype(str)
+                        df['Round'] = df['Round'].astype(str)
+                        input_id = str(student_id).strip()
+                        input_round = str(selected_round).strip()
+                        
+                        # "현재 회차"에 "같은 ID"가 있는지 필터링
+                        duplicate_entry = df[
+                            (df['ID'] == input_id) & 
+                            (df['Round'] == input_round)
+                        ]
+                        
+                        if not duplicate_entry.empty:
+                            is_duplicate = True
                 except Exception as e:
-                    st.error(f"저장 오류: {e}")
+                    # 시트가 비어있거나 읽기 에러 시에는 그냥 넘어감 (첫 제출로 간주)
+                    pass
+
+            # 2. 중복이면 에러 띄우고 멈춤, 아니면 채점 진행
+            if is_duplicate:
+                st.error(f"⛔ **이미 제출된 학번입니다! ({student_id})**")
+                st.warning(f"이미 '{selected_round}'에 응시한 기록이 있습니다.\n본인이 맞다면 [이번 결과 조회] 탭에서 점수를 확인하세요.\n(만약 동명이인이거나 실수라면 선생님께 문의하세요.)")
+            
+            else:
+                # --- 기존 채점 및 저장 로직 실행 ---
+                total_score = 0
+                wrong_list = []
+                wrong_q_nums = []
+                
+                for q, info in current_exam_data.items():
+                    if user_answers[q] == info['ans']:
+                        total_score += info['score']
+                    else:
+                        wrong_list.append(info['type'])
+                        wrong_q_nums.append(str(q))
+                
+                if sheet:
+                    try:
+                        wrong_q_str = ", ".join(wrong_q_nums) if wrong_q_nums else "없음"
+                        
+                        new_row = [
+                            selected_round,
+                            student_id, 
+                            name, 
+                            total_score, 
+                            " | ".join(wrong_list), 
+                            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                            wrong_q_str
+                        ]
+                        sheet.append_row(new_row)
+                        
+                        st.balloons()
+                        st.success(f"✅ {name}님, {selected_round} 답안이 정상적으로 제출되었습니다!")
+                        st.info("👉 옆의 **[이번 결과 조회]** 탭으로 이동해서 자세한 성적표를 확인하세요.")
+                        
+                    except Exception as e:
+                        st.error(f"저장 오류: {e}")
 
 # === [탭 2] 결과 조회 (특정 회차) ===
 # === [탭 2] 결과 조회 (특정 회차) ===
