@@ -129,7 +129,7 @@ def create_report_html(round_name, name, score, rank, total_students, wrong_q_nu
             .footer {{
                 text-align: center;
                 margin-top: 30px;
-                font-size: 8px;
+                font-size: 10px;
                 color: #555;
             }}
         </style>
@@ -155,7 +155,7 @@ def create_report_html(round_name, name, score, rank, total_students, wrong_q_nu
 
             <div class="score-box">
                 <strong>[ 틀린 문제 번호 ]</strong><br>
-                <div style="margin-top:5px; font-size:18px;">{wrong_nums_str}</div>
+                <div style="margin-top:5px; font-size:15px;">{wrong_nums_str}</div>
             </div>
 
             <h3>💊 유형별 상세 처방</h3>
