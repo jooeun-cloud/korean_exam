@@ -646,7 +646,7 @@ with tab2:
             except Exception as e:
                 st.error(f"조회 중 오류 발생: {e}")
 
-# === [탭 3] 나의 종합 기록부 (NEW!) ===
+# === [탭 3] 나의 종합 기록부 (0포함 문제 해결 버전) ===
 with tab3:
     st.header("📈 종합 학습 분석 (포트폴리오)")
     st.write("지금까지 응시한 모든 시험 결과를 모아서 분석해 드립니다.")
@@ -656,71 +656,93 @@ with tab3:
     if st.button("종합 분석 시작"):
         sheet = get_google_sheet_data()
         if sheet:
-            records = sheet.get_all_records()
-            df = pd.DataFrame(records)
-            df['ID'] = df['ID'].astype(str)
-            
-            # 내 모든 기록 가져오기
-            my_history = df[df['ID'] == port_id]
-            
-            if not my_history.empty:
-                st.success(f"**{my_history.iloc[0]['Name']}**님의 학습 데이터를 불러왔습니다.")
+            try:
+                records = sheet.get_all_records()
+                df = pd.DataFrame(records)
                 
-                # 1. 성적 변화 그래프
-                st.subheader("1️⃣ 성적 변화 추이")
+                # [핵심 수정] 데이터 전처리 (0 문제 해결 로직 적용)
+                df['ID'] = df['ID'].astype(str)
                 
-                # 그래프를 위해 데이터 정리
-                chart_data = my_history[['Round', 'Score']].copy()
-                # Round 문자열("1회차")을 그대로 X축으로 씁니다.
+                # ID 정규화 함수 (0101 -> 101 로 통일)
+                def normalize_id(val):
+                    try:
+                        return str(int(val))
+                    except:
+                        return str(val).strip()
                 
-                # Altair 차트 그리기 (선 그래프 + 점)
-                c = alt.Chart(chart_data).mark_line(point=True).encode(
-                    x=alt.X('Round', sort=None, title='시험 회차'),
-                    y=alt.Y('Score', scale=alt.Scale(domain=[0, 100]), title='점수'),
-                    tooltip=['Round', 'Score']
-                ).properties(height=300)
+                # 시트 데이터 & 입력 데이터 정규화
+                df['ID_Clean'] = df['ID'].apply(normalize_id)
+                input_clean = normalize_id(port_id)
                 
-                st.altair_chart(c, use_container_width=True)
+                # 내 모든 기록 가져오기 (정규화된 ID로 비교)
+                my_history = df[df['ID_Clean'] == input_clean]
                 
-                # 2. 평균 점수 및 요약
-                avg_score = my_history['Score'].mean()
-                max_score = my_history['Score'].max()
-                st.info(f"📊 **총 {len(my_history)}회** 응시 | 평균 점수: **{avg_score:.1f}점** | 최고 점수: **{max_score}점**")
-                
-                # 3. 취약 유형 누적 분석 (워드 클라우드 느낌)
-                st.subheader("2️⃣ 누적 약점 분석 (자주 틀리는 유형)")
-                
-                all_wrong_types = []
-                for idx, row in my_history.iterrows():
-                    if row['Wrong_Types']:
-                        types = str(row['Wrong_Types']).split(" | ")
-                        all_wrong_types.extend(types)
-                
-                if all_wrong_types:
-                    # 많이 틀린 순서대로 정렬
-                    from collections import Counter
-                    counts = Counter(all_wrong_types)
-                    sorted_counts = counts.most_common()
+                if not my_history.empty:
+                    # 이름 가져오기 (가장 최근 기록 기준)
+                    student_name = my_history.iloc[-1]['Name']
+                    st.success(f"**{student_name}**님의 학습 데이터를 불러왔습니다.")
                     
-                    col1, col2 = st.columns([1, 2])
-                    with col1:
-                        st.write("📉 **가장 많이 틀린 유형 TOP 3**")
-                        for i, (w_type, count) in enumerate(sorted_counts[:3]):
-                            st.write(f"**{i+1}위:** {w_type} ({count}회)")
+                    # 1. 성적 변화 그래프
+                    st.subheader("1️⃣ 성적 변화 추이")
                     
-                    with col2:
-                        st.write("💡 **AI 총평**")
-                        worst_type = sorted_counts[0][0]
-                        st.write(f"""
-                        데이터 분석 결과, **'{worst_type}'** 유형에서 실수가 가장 잦습니다.
-                        점수 상승을 위해 다음 시험 전까지 이 파트를 집중 공략하는 것을 추천합니다.
-                        """)
-                else:
-                    st.success("지금까지 틀린 문제가 하나도 없습니다! 완벽합니다.")
-                
-                # 4. 히스토리 표
-                st.subheader("3️⃣ 응시 기록 상세")
-                st.dataframe(my_history[['Round', 'Score', 'Timestamp', 'Wrong_Types']].style.format({"Score": "{:.0f}"}))
+                    chart_data = my_history[['Round', 'Score']].copy()
+                    
+                    # Altair 차트 그리기
+                    c = alt.Chart(chart_data).mark_line(point=True).encode(
+                        x=alt.X('Round', sort=None, title='시험 회차'),
+                        y=alt.Y('Score', scale=alt.Scale(domain=[0, 100]), title='점수'),
+                        tooltip=['Round', 'Score']
+                    ).properties(height=300)
+                    
+                    st.altair_chart(c, use_container_width=True)
+                    
+                    # 2. 평균 점수 및 요약
+                    avg_score = my_history['Score'].mean()
+                    max_score = my_history['Score'].max()
+                    st.info(f"📊 **총 {len(my_history)}회** 응시 | 평균 점수: **{avg_score:.1f}점** | 최고 점수: **{max_score}점**")
+                    
+                    # 3. 취약 유형 누적 분석
+                    st.subheader("2️⃣ 누적 약점 분석 (자주 틀리는 유형)")
+                    
+                    all_wrong_types = []
+                    for idx, row in my_history.iterrows():
+                        if str(row['Wrong_Types']).strip():
+                            types = str(row['Wrong_Types']).split(" | ")
+                            all_wrong_types.extend(types)
+                    
+                    if all_wrong_types:
+                        from collections import Counter
+                        counts = Counter(all_wrong_types)
+                        sorted_counts = counts.most_common()
+                        
+                        col1, col2 = st.columns([1, 2])
+                        with col1:
+                            st.write("📉 **가장 많이 틀린 유형 TOP 3**")
+                            for i, (w_type, count) in enumerate(sorted_counts[:3]):
+                                st.write(f"**{i+1}위:** {w_type} ({count}회)")
+                        
+                        with col2:
+                            st.write("💡 **AI 총평**")
+                            worst_type = sorted_counts[0][0]
+                            st.write(f"""
+                            데이터 분석 결과, **'{worst_type}'** 유형에서 실수가 가장 잦습니다.
+                            이 부분을 집중적으로 보완하면 평균 점수가 크게 오를 것입니다.
+                            """)
+                    else:
+                        st.balloons()
+                        st.success("지금까지 틀린 문제가 하나도 없습니다! 정말 대단합니다.")
+                    
+                    # 4. 히스토리 표
+                    st.subheader("3️⃣ 응시 기록 상세")
+                    
+                    # 보여줄 컬럼만 선택해서 깔끔하게 출력
+                    history_view = my_history[['Round', 'Score', 'Timestamp', 'Wrong_Types']].copy()
+                    history_view.columns = ['회차', '점수', '응시일시', '틀린 유형'] # 한글로 보기 좋게 변경
+                    
+                    st.dataframe(history_view.style.format({"점수": "{:.0f}"}))
 
-            else:
-                st.warning("응시 기록이 없습니다.")
+                else:
+                    st.warning("응시 기록이 없습니다. (학번 입력 시 0을 빼거나 넣어서 다시 시도해보세요)")
+            
+            except Exception as e:
+                st.error(f"데이터 분석 중 오류 발생: {e}")
