@@ -25,7 +25,74 @@ def get_google_sheet_data():
     except gspread.SpreadsheetNotFound:
         st.error("구글 시트를 찾을 수 없습니다. 시트 이름을 'ExamResults'로 설정했는지 확인하세요.")
         return None
+# --- [추가] 성적표 HTML 생성 함수 ---
+def create_report_html(name, score, rank, total_students, wrong_q_nums, wrong_list, feedback_text):
+    # 현재 시간
+    now = datetime.now().strftime("%Y년 %m월 %d일 %H시 %M분")
+    
+    # 틀린 번호 텍스트
+    if wrong_q_nums:
+        wrong_nums_str = ", ".join(wrong_q_nums) + "번"
+    else:
+        wrong_nums_str = "없음 (만점)"
 
+    # HTML 디자인 (A4 용지 스타일)
+    html = f"""
+    <html>
+    <head>
+        <style>
+            body {{ font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; padding: 40px; background-color: #f0f0f0; }}
+            .paper {{ background-color: white; padding: 50px; max-width: 800px; margin: 0 auto; border: 1px solid #ccc; box-shadow: 5px 5px 15px rgba(0,0,0,0.1); }}
+            h1 {{ text-align: center; color: #333; border-bottom: 2px solid #333; padding-bottom: 20px; }}
+            .info-table {{ width: 100%; border-collapse: collapse; margin-bottom: 30px; }}
+            .info-table th {{ background-color: #eee; padding: 10px; border: 1px solid #ddd; width: 30%; }}
+            .info-table td {{ padding: 10px; border: 1px solid #ddd; text-align: center; font-weight: bold; }}
+            .score-box {{ text-align: center; padding: 20px; background-color: #f9f9f9; border-radius: 10px; margin: 20px 0; }}
+            .score {{ font-size: 40px; color: #d32f2f; font-weight: bold; }}
+            .feedback-section {{ margin-top: 30px; line-height: 1.6; }}
+            .feedback-box {{ background-color: #fff8e1; padding: 15px; border-left: 5px solid #ffb300; margin-bottom: 15px; }}
+            .footer {{ margin-top: 50px; text-align: center; color: #888; font-size: 12px; }}
+        </style>
+    </head>
+    <body>
+        <div class="paper">
+            <h1>📑 국어 모의고사 분석 성적표</h1>
+            
+            <table class="info-table">
+                <tr>
+                    <th>이름</th>
+                    <td>{name}</td>
+                    <th>응시일자</th>
+                    <td>{now}</td>
+                </tr>
+                <tr>
+                    <th>내 점수</th>
+                    <td style="color: blue;">{int(score)}점</td>
+                    <th>전체 등수</th>
+                    <td>{rank}등 / {total_students}명</td>
+                </tr>
+            </table>
+
+            <div class="score-box">
+                <div>틀린 문제 번호</div>
+                <div style="font-size: 18px; margin-top: 5px;">❌ {wrong_nums_str}</div>
+            </div>
+
+            <div class="feedback-section">
+                <h2>💊 유형별 상세 처방</h2>
+                {feedback_text}
+            </div>
+
+            <div class="footer">
+                위 학생의 모의고사 결과를 증명합니다.<br>
+                Designed by AI Teacher
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    return html
+    
 # --- 2. 문제 데이터 및 정답 설정 ---
 EXAM_DATA = {
     1: {"ans": 2, "score": 3, "type": "강연자의 말하기 방식 이해"},
@@ -384,20 +451,43 @@ with tab1:
                     if not found_any_strength:
                         st.write("- 모든 영역에서 조금씩 실수가 있었네요. 오답 정리를 통해 빈틈을 채우면 다음엔 만점입니다! 💪")
 
-                    # === [B] 약점 분석 (피드백) ===
+                    # === [B] 약점 분석 및 성적표 다운로드 ===
+                    final_feedback_html = "" # 성적표에 들어갈 내용 저장용
+
                     if wrong_list:
                         st.markdown("---")
                         st.error(f"🚨 **보완이 필요한 부분 ({len(wrong_list)}문제 오답)**")
+                        
                         unique_feedback = set(get_feedback_message(w) for w in wrong_list)
+                        
                         for msg in unique_feedback:
                             st.markdown(msg)
                             st.markdown("---")
+                            
+                            # 성적표용 텍스트 변환 (마크다운 -> HTML 태그로 단순 변환)
+                            clean_msg = msg.replace("###", "<h3>").replace("**", "<b>").replace("\n", "<br>")
+                            final_feedback_html += f"<div class='feedback-box'>{clean_msg}</div>"
                     else:
                         st.balloons()
                         st.write("### 🎉 완벽합니다! 약점이 없는 무결점 실력입니다!")
+                        final_feedback_html = "<div class='feedback-box'><h3>🎉 완벽합니다!</h3>틀린 문제가 없어 학습 처방이 없습니다.</div>"
 
-                except Exception as e:
-                    st.error(f"데이터 저장 오류: {e}")
+                    # [추가됨] 성적표 파일 생성 및 다운로드 버튼
+                    st.write("### 💾 결과 저장")
+                    
+                    # HTML 성적표 생성
+                    report_html = create_report_html(
+                        name, total_score, my_rank, total_students, wrong_q_nums, wrong_list, final_feedback_html
+                    )
+                    
+                    # 다운로드 버튼
+                    st.download_button(
+                        label="📥 성적표 다운로드 (PDF 저장용)",
+                        data=report_html,
+                        file_name=f"{name}_국어성적표.html",
+                        mime="text/html",
+                        help="다운받은 파일을 열고 [Ctrl+P] -> [PDF로 저장]을 선택하면 PDF로 변환됩니다."
+                    )
 # === [탭 2] 등수 재조회 ===
 # === [탭 2] 등수 재조회 ===
 with tab2:
@@ -457,7 +547,9 @@ with tab2:
                     # ... (아까 작성해드린 강점 로직 복사해서 넣으세요) ...
                     # (너무 길어져서 생략합니다. 기존 코드 유지하거나 위에 탭1 코드를 참고하세요)
                     
-                    # === 약점 분석 로직 (재사용) ===
+                    # === 약점 분석 (이전 코드 유지) ===
+                    final_feedback_html = "" # 재조회용 저장 변수
+
                     if wrong_list:
                         st.markdown("---")
                         st.error("🚨 **보완이 필요한 부분 다시 보기**")
@@ -465,8 +557,29 @@ with tab2:
                         for msg in unique_feedback:
                             st.markdown(msg)
                             st.markdown("---")
+                            
+                            clean_msg = msg.replace("###", "<h3>").replace("**", "<b>").replace("\n", "<br>")
+                            final_feedback_html += f"<div class='feedback-box'>{clean_msg}</div>"
+                    else:
+                        final_feedback_html = "<div class='feedback-box'><h3>🎉 완벽합니다!</h3>오답 내역이 없습니다.</div>"
 
-                else:
-                    st.warning("해당 학번의 기록이 없습니다.")
-            except Exception as e:
-                st.error(f"조회 중 오류 발생: {e}")
+                    # [추가됨] 재조회 시에도 다운로드 가능하게
+                    st.markdown("---")
+                    st.write("### 💾 성적표 다시 저장하기")
+                    
+                    # 틀린 번호 리스트 복구 (문자열 -> 리스트)
+                    if wrong_q_print and wrong_q_print != "없음":
+                        w_nums = wrong_q_print.split(", ")
+                    else:
+                        w_nums = []
+
+                    report_html = create_report_html(
+                        last_row['Name'], current_score, realtime_rank, total_now, w_nums, wrong_list, final_feedback_html
+                    )
+                    
+                    st.download_button(
+                        label="📥 성적표 다시 다운로드",
+                        data=report_html,
+                        file_name=f"{last_row['Name']}_국어성적표_재발급.html",
+                        mime="text/html"
+                    )
