@@ -382,84 +382,125 @@ with tab1:
                     st.error(f"저장 오류: {e}")
 
 # === [탭 2] 결과 조회 (특정 회차) ===
+# === [탭 2] 결과 조회 (특정 회차) ===
 with tab2:
     st.header("🔍 회차별 결과 조회")
     col_a, col_b = st.columns(2)
-    check_round = col_a.selectbox("확인할 회차", list(EXAM_DB.keys()), key="check_round")
+    
+    # 회차 선택 박스 (데이터가 있을 때만)
+    if EXAM_DB:
+        check_round = col_a.selectbox("확인할 회차", list(EXAM_DB.keys()), key="check_round")
+    else:
+        check_round = "1회차"
+        
     check_id = col_b.text_input("학번(ID) 입력", key="check_id_tab2")
     
     if st.button("결과 확인하기"):
         sheet = get_google_sheet_data()
         if sheet:
-            records = sheet.get_all_records()
-            df = pd.DataFrame(records)
-            df['ID'] = df['ID'].astype(str)
-            
-            # 회차와 ID가 모두 일치하는 데이터 찾기
-            my_data = df[(df['ID'] == check_id) & (df['Round'] == check_round)]
-            
-            if not my_data.empty:
-                # 같은 회차를 여러번 쳤으면 가장 최신 것만
-                last_row = my_data.iloc[-1]
+            try:
+                records = sheet.get_all_records()
+                df = pd.DataFrame(records)
+                df['ID'] = df['ID'].astype(str)
                 
-                # 해당 회차 전체 응시자 데이터 (등수 계산용)
-                round_data = df[df['Round'] == check_round]
-                rank = round_data[round_data['Score'] > last_row['Score']].shape[0] + 1
-                total_std = len(round_data)
-                pct = (rank / total_std) * 100
+                # 회차와 ID가 모두 일치하는 데이터 찾기
+                my_data = df[(df['ID'] == check_id) & (df['Round'] == check_round)]
                 
-                st.divider()
-                st.subheader(f"📢 {last_row['Name']}님의 {check_round} 결과")
-                
-                m1, m2, m3 = st.columns(3)
-                m1.metric("점수", f"{int(last_row['Score'])}점")
-                m2.metric("등수", f"{rank}등 / {total_std}명")
-                m3.metric("상위", f"{pct:.1f}%")
-                
-                # 틀린 문제 출력 (A열이 추가되어 컬럼 위치 조심)
-                w_q = str(last_row['Wrong_Questions'])
-                if w_q and w_q != "없음":
-                    st.error(f"❌ 틀린 문제: {w_q}번")
-                else:
-                    st.success("⭕ 만점입니다!")
-                
-                # --- [수정됨] 피드백 출력 및 성적표용 텍스트 변환 ---
-                w_types = str(last_row['Wrong_Types']).split(" | ") if str(last_row['Wrong_Types']) else []
-                
-                final_html = "" # 성적표에 들어갈 최종 HTML 코드
-                
-                if w_types:
-                    st.warning("보완이 필요한 부분")
-                    unique_fb = set(get_feedback_message(w) for w in w_types)
+                if not my_data.empty:
+                    # 같은 회차를 여러번 쳤으면 가장 최신 것만
+                    last_row = my_data.iloc[-1]
                     
-                    for msg in unique_fb:
-                        # 1. 화면에 보여주기 (마크다운 그대로 출력)
-                        st.markdown(msg)
-                        st.markdown("---")
+                    # 해당 회차 전체 응시자 데이터 (등수 계산용)
+                    round_data = df[df['Round'] == check_round]
+                    
+                    # 내 점수보다 높은 사람 수 + 1 = 등수
+                    rank = round_data[round_data['Score'] > last_row['Score']].shape[0] + 1
+                    total_std = len(round_data)
+                    pct = (rank / total_std) * 100
+                    
+                    # --- [화면 출력 1] 점수 및 등수 ---
+                    st.divider()
+                    st.subheader(f"📢 {last_row['Name']}님의 {check_round} 결과")
+                    
+                    m1, m2, m3 = st.columns(3)
+                    m1.metric("점수", f"{int(last_row['Score'])}점")
+                    m2.metric("등수", f"{rank}등 / {total_std}명")
+                    m3.metric("상위", f"{pct:.1f}%")
+                    
+                    # --- [화면 출력 2] 틀린 문제 번호 ---
+                    # Wrong_Questions 컬럼이 없거나 비어있을 경우 대비
+                    w_q = "없음"
+                    if 'Wrong_Questions' in last_row and str(last_row['Wrong_Questions']).strip():
+                        w_q = str(last_row['Wrong_Questions'])
+                    
+                    if w_q != "없음":
+                        st.error(f"❌ 틀린 문제: {w_q}번")
+                    else:
+                        st.success("⭕ 만점입니다! 틀린 문제가 없습니다.")
+                    
+                    # --- [화면 출력 3] 피드백 및 성적표 생성 ---
+                    # 저장된 틀린 유형 가져오기
+                    w_types = []
+                    if str(last_row['Wrong_Types']).strip():
+                        w_types = str(last_row['Wrong_Types']).split(" | ")
+                    
+                    final_html = "" # 성적표에 들어갈 HTML 저장 변수
+                    
+                    if w_types:
+                        st.warning("💡 보완이 필요한 부분 (상세 피드백)")
+                        unique_fb = set(get_feedback_message(w) for w in w_types)
                         
-                        # 2. 성적표용 HTML로 변환 (핵심 수정!)
-                        # ### -> <h3>, ** -> <b>, 줄바꿈 -> <br> 등으로 치환
-                        clean_msg = msg.replace("###", "<h3>").replace("**", "<b>").replace("\n", "<br>")
-                        # 마크다운의 불필요한 기호들 제거
-                        clean_msg = clean_msg.replace(">", "&nbsp;💡").replace("*", "•") 
-                        
-                        final_html += f"<div style='border:1px solid #ddd; padding:15px; margin-bottom:10px;'>{clean_msg}</div>"
+                        for msg in unique_fb:
+                            # 1. 화면에는 마크다운으로 예쁘게 보여줌 (이게 있어야 글이 나옵니다!)
+                            st.markdown(msg)
+                            st.markdown("---")
+                            
+                            # 2. 성적표용 HTML 변환 (특수문자 제거)
+                            # (1) 줄바꿈 처리
+                            clean_msg = msg.replace("\n", "<br>")
+                            # (2) ### 제목 -> 굵은 글씨로
+                            clean_msg = clean_msg.replace("###", "<br><b style='font-size:18px; color:#333;'>")
+                            # (3) **강조** -> 굵은 글씨 태그로 변환 (간단히 ** 제거하거나 <b>로 변경)
+                            clean_msg = clean_msg.replace("**", "") 
+                            # (4) 기타 마크다운 기호 제거
+                            clean_msg = clean_msg.replace(">", "💡").replace("-", "•")
+                            
+                            # HTML에 추가
+                            final_html += f"<div class='feedback-box'>{clean_msg}</div>"
+                    else:
+                        st.success("완벽합니다! 약점이 없습니다.")
+                        final_html = "<div class='feedback-box'><h3>🎉 완벽합니다!</h3>틀린 문제가 없어 학습 처방이 없습니다.</div>"
+                    
+                    # --- [화면 출력 4] 성적표 다운로드 버튼 ---
+                    st.write("---")
+                    st.write("### 💾 결과 저장")
+                    
+                    w_nums_list = w_q.split(", ") if w_q != "없음" else []
+                    
+                    # 성적표 생성 함수 호출
+                    report = create_report_html(
+                        check_round, 
+                        last_row['Name'], 
+                        last_row['Score'], 
+                        rank, 
+                        total_std, 
+                        w_nums_list, 
+                        w_types, 
+                        final_html
+                    )
+                    
+                    st.download_button(
+                        label="📥 성적표 다운로드 (PDF 저장용)", 
+                        data=report, 
+                        file_name=f"{check_round}_{last_row['Name']}_성적표.html", 
+                        mime="text/html"
+                    )
+
                 else:
-                    st.success("완벽합니다!")
-                    final_html = "<div style='padding:15px; border:1px solid #ddd;'><h3>🎉 완벽합니다!</h3>틀린 문제가 없어 학습 처방이 없습니다.</div>"
-                
-                # 성적표 다운로드
-                st.write("---")
-                w_nums_list = w_q.split(", ") if w_q != "없음" else []
-                
-                # 변환된 final_html을 함수에 전달
-                report = create_report_html(check_round, last_row['Name'], last_row['Score'], rank, total_std, w_nums_list, w_types, final_html)
-                
-                st.download_button("📥 성적표 다운로드", report, file_name=f"{check_round}_성적표.html", mime="text/html")
-
-            else:
-                st.error("해당 회차의 응시 기록이 없습니다.")
-
+                    st.error("해당 회차의 응시 기록이 없습니다. 학번과 회차를 다시 확인해주세요.")
+            
+            except Exception as e:
+                st.error(f"조회 중 오류 발생: {e}")
 # === [탭 3] 나의 종합 기록부 (NEW!) ===
 with tab3:
     st.header("📈 종합 학습 분석 (포트폴리오)")
