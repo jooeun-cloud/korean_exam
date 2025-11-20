@@ -600,7 +600,7 @@ with tab2:
                             st.markdown("---")
                             clean_msg = msg.replace(">", "💡").replace("**", "").replace("-", "•")
                             clean_msg = clean_msg.replace("\n", "<br>")
-                            clean_msg = clean_msg.replace("###", "<br><b style='font-size:10px; color:#333;'>")
+                            clean_msg = clean_msg.replace("###", "<br><b style='font-size:13px; color:#333;'>")
                             final_html += f"<div class='feedback-box'>{clean_msg}</div>"
                     else:
                         st.success("완벽합니다! 약점이 없습니다.")
