@@ -61,35 +61,62 @@ EXAM_DATA = {
     31: {"ans": 1, "score": 3, "type": "상황에 맞는 한자성어 이해"},
 }
 
+# --- 2. 유형별 맞춤 피드백 & 칭찬 메시지 함수 ---
+
+# [1] 약점 피드백 (틀렸을 때)
 def get_feedback_message(question_type):
     if "문법" in question_type or "음운" in question_type or "국어사전" in question_type or "중세" in question_type:
         return """### 🔧 [문법/어휘] 개념의 '적용' 연습이 시급합니다!
-        
-> 문법은 '감'으로 푸는 것이 아니라 **정확한 '공식'을 대입**해야 하는 수학 같은 영역입니다. 현재 기본 개념과 실제 예문 연결이 잘 안 되고 있습니다.
+> 문법은 감으로 푸는 게 아니라 **정확한 공식**을 대입해야 하는 수학 같은 영역입니다.
 
-**📌 1. 음운의 변동 (필수 암기)**
-단순히 규칙 이름만 외우지 말고, **교체, 탈락, 첨가, 축약**이 일어나는 환경을 구분해야 합니다. 특히 '음운 동화'와 '된소리되기'의 조건을 백지에 써보며 정리하세요.
+- **음운 변동:** 교체, 탈락, 첨가, 축약의 조건을 백지에 써보며 정리하세요.
+- **문장 성분:** '서술어'를 먼저 찾고, 그에 해당하는 주어를 찾는 연습을 하세요.
+- **중세 국어:** 현대어 풀이와 일대일로 대응시켜 보며 다른 조사를 찾아보세요."""
 
-**📌 2. 문장의 짜임 & 문법 요소**
-아는 문장과 안긴 문장을 구분할 때는 반드시 **'서술어'**를 먼저 찾고, 그에 해당하는 **'주어'**를 찾는 습관을 들이세요. 문장 성분 분석 연습이 부족합니다.
+    elif "비문학" in question_type or "철학" in question_type or "경제" in question_type or "건축" in question_type:
+        return """### 📚 [비문학 독서] '정보의 구조화'가 필요합니다.
+> 지문의 내용을 눈으로만 읽지 말고, **손으로 구조를 그리며** 읽어야 합니다.
 
-**📌 3. 중세 국어**
-중세 국어는 현대어 풀이와 **일대일로 대응**시켜 보는 것이 핵심입니다. 낯선 표기에 당황하지 말고 현대어와 어떤 조사가 다르게 쓰였는지 비교해 보세요.
+- **문단 요약:** 각 문단의 핵심 내용을 한 문장으로 요약하는 연습을 하세요.
+- **정보 대조:** 철학/경제 지문은 서로 다른 관점(A학자 vs B학자)의 차이점을 표로 정리하는 습관이 중요합니다.
+- **선지 근거:** 정답이 아니라도, 나머지 오답 선지가 지문의 '어디'에 나와 있는지 찾는 숨은그림찾기 훈련을 하세요."""
 
-**💡 학습 처방:** 오늘 틀린 문법 문제의 선지 5개를 모두 노트에 적고, 왜 맞고 왜 틀린지 **이유를 한 줄씩 적는 오답 노트**를 작성하세요."""
-    elif "비문학" in question_type:
-        return "📚 **[비문학 독서]** 지문의 핵심 정보와 세부 내용을 대조하는 훈련이 필요합니다."
     elif "시가" in question_type or "작품" in question_type or "시어" in question_type or "소설" in question_type or "각본" in question_type:
-        return "🎨 **[문학]** 작품 감상 능력과 문학 개념어(표현법, 서사 구조 등)를 보완해야 합니다."
-    elif "적용" in question_type or "보기" in question_type or "준거" in question_type:
-        return "🔥 **[고난도/응용]** <보기>나 새로운 상황에 지문 내용을 적용하는 심화 문제 연습이 필수입니다."
-    elif "강연" in question_type or "말하기" in question_type:
-        return "🗣️ **[화법]** 말하기 전략과 자료 활용 방식을 묻는 문제 유형에 익숙해져야 합니다."
-    elif "한자성어" in question_type:
-        return "📖 **[어휘]** 필수 한자성어와 어휘 암기가 필요합니다."
-    else:
-        return "⚠️ 해당 유형의 기출 문제를 더 풀어보세요."
+        return """### 🎨 [문학] '상황'과 '정서' 파악에 집중하세요.
+> 문학은 작가의 마음이 되어 **공감**하는 것이 시작입니다.
 
+- **시 문학:** 화자가 어떤 상황(이별, 자연 예찬 등)에 있는지 먼저 파악하고, 시어의 긍정/부정 의미를 기호(O, X)로 표시해 보세요.
+- **소설/극:** 인물 간의 갈등 관계도(누가 누구를 싫어하는지)를 그리면서 읽으면 전체 줄거리가 한눈에 들어옵니다."""
+
+    elif "적용" in question_type or "보기" in question_type or "준거" in question_type:
+        return """### 🔥 [고난도/응용] '보기'는 힌트 창고입니다.
+> <보기> 문제나 3점짜리 문제는 지문의 내용을 새로운 상황에 적용하는 **논리력**을 묻습니다.
+
+- <보기>의 내용을 먼저 완벽하게 이해한 뒤, 지문의 핵심 키워드와 연결하는 연습을 하세요.
+- 이 유형을 틀린다는 것은 독해력보다는 **'문제 해결력'**이 부족하다는 뜻입니다. 고난도 기출 문제만 모아서 하루 3개씩 꾸준히 풀어보세요."""
+
+    elif "강연" in question_type or "말하기" in question_type:
+        return """### 🗣️ [화법] 말하기 전략을 파악하세요.
+> 화법은 강연자가 청중에게 **어떤 의도**로 말하고 있는지를 묻습니다.
+
+- 질문을 던지며 흥미를 유발하는지, 전문가의 말을 인용하는지 등 **말하기 방식(전략)**을 정리해 두어야 합니다."""
+    
+    else:
+        return """### ⚠️ [기타] 기초 학습이 필요합니다.
+해당 유형의 기출 문제를 다시 풀어보고, 해설지를 정독하여 출제 의도를 파악해 보세요."""
+
+# [2] 강점 칭찬 (다 맞았을 때)
+def get_strength_message(question_type):
+    if "문법" in question_type or "음운" in question_type:
+        return "💎 **[문법 마스터]** 문법 개념이 아주 탄탄하게 잡혀있네요! 어려운 문법 문제도 논리적으로 잘 해결하고 있습니다."
+    elif "비문학" in question_type:
+        return "🧠 **[논리왕]** 정보량이 많은 비문학 지문을 구조적으로 독해하는 능력이 탁월합니다! 가장 어려운 파트를 잘 잡으셨어요."
+    elif "문학" in question_type or "소설" in question_type or "시가" in question_type:
+        return "💖 **[공감 능력자]** 작품 속 인물의 심리와 작가의 의도를 꿰뚫어 보는 감수성이 뛰어납니다! 문학은 당신의 강력한 무기입니다."
+    elif "보기" in question_type or "적용" in question_type:
+        return "🚀 **[응용 천재]** 남들이 가장 어려워하는 <보기> 응용 문제를 완벽하게 해결했네요. 사고력이 매우 뛰어납니다!"
+    else:
+        return "✨ **[성실한 학습자]** 해당 유형에 대한 이해도가 완벽합니다. 지금처럼만 꾸준히 하세요!"
 # --- 3. UI 및 메인 로직 ---
 st.set_page_config(page_title="국어 모의고사 채점", page_icon="📝")
 st.title("📝 국어 모의고사 자동 채점 & 분석")
@@ -123,68 +150,87 @@ with tab1:
         if not name or not student_id:
             st.error("이름과 학번을 반드시 입력해주세요!")
         else:
-            # 1. 채점
+            # 1. 채점 및 유형 분석
             total_score = 0
-            wrong_list = []
+            wrong_list = []     # 틀린 유형 리스트
+            correct_list = []   # 맞은 유형 리스트
+            
             for q, info in EXAM_DATA.items():
                 if user_answers[q] == info['ans']:
                     total_score += info['score']
+                    correct_list.append(info['type']) # 맞은 유형 저장
                 else:
-                    wrong_list.append(info['type'])
+                    wrong_list.append(info['type']) # 틀린 유형 저장
             
-            # 2. 구글 시트에 저장
+            # 2. 구글 시트에 저장 (기존 코드와 동일)
             sheet = get_google_sheet_data()
             if sheet:
                 try:
-                    # 기존 데이터 가져오기 (등수 계산 및 중복 확인용)
                     records = sheet.get_all_records()
                     df = pd.DataFrame(records)
-                    
-                    # 기존에 같은 ID가 있으면 해당 행 삭제 (업데이트 효과)
-                    # (복잡함을 피하기 위해 여기선 단순히 맨 아래에 추가하고, 나중에 조회할 때 최신 것만 쓰거나 필터링)
-                    # *더 정확한 로직: ID가 있는지 찾아서 그 셀을 업데이트*
-                    # 여기서는 간단히 '추가(append)' 방식을 씁니다.
-                    
                     new_row = [
-                        student_id, 
-                        name, 
-                        total_score, 
+                        student_id, name, total_score, 
                         " | ".join(wrong_list), 
                         datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     ]
                     sheet.append_row(new_row)
                     
-                    # 3. 등수 계산을 위해 데이터 다시 로드 (방금 추가한 것 포함)
+                    # 등수 계산
                     records = sheet.get_all_records()
                     df = pd.DataFrame(records)
-                    
-                    # 내 등수 계산
-                    # 학번이 같은 중복 데이터가 있다면 가장 최근 점수만 남기는 처리 필요할 수 있음
-                    # 여기서는 단순하게 전체 데이터 기준
                     my_rank = df[df['Score'] > total_score].shape[0] + 1
                     total_students = len(df)
                     percentile = (my_rank / total_students) * 100
                     
+                    # --- 3. 결과 화면 출력 (여기부터 디자인 변경) ---
                     st.divider()
-                    st.subheader(f"📢 {name}님의 결과")
+                    st.subheader(f"📢 {name}님의 분석 결과")
                     
+                    # 점수판
                     c1, c2, c3 = st.columns(3)
                     c1.metric("내 점수", f"{int(total_score)}점")
                     c2.metric("현재 등수", f"{my_rank}등", f"/ {total_students}명")
                     c3.metric("상위", f"{percentile:.1f}%")
                     
+                    st.markdown("---")
+
+                    # [A] 강점 분석 (칭찬) 로직
+                    # 전체 틀린 유형에 포함되지 않은 키워드를 찾아서 칭찬
+                    # (예: 문법 문제를 하나도 안 틀렸으면 문법 칭찬)
+                    st.success("🌟 **나의 강점 발견! (칭찬해 주세요)**")
+                    
+                    strength_keywords = ["문법", "비문학", "문학", "보기"]
+                    found_strength = False
+                    
+                    # 틀린 유형들을 하나의 긴 문자열로 합침 (검색 편하게)
+                    wrong_str = " ".join(wrong_list)
+                    
+                    for keyword in strength_keywords:
+                        # 해당 키워드 문제가 시험에 있었는지 확인 (EXAM_DATA 전체 탐색)
+                        keyword_exists = any(keyword in info['type'] for info in EXAM_DATA.values())
+                        
+                        # 시험에 그 유형이 있었고 + 나는 하나도 안 틀렸다면? -> 칭찬!
+                        if keyword_exists and (keyword not in wrong_str):
+                            msg = get_strength_message(keyword)
+                            st.write(f"- {msg}")
+                            found_strength = True
+                            
+                    if not found_strength:
+                        st.write("- 골고루 조금씩 실수가 있었네요! 하지만 다음엔 완벽해질 수 있어요. 화이팅!")
+
+                    # [B] 약점 분석 (피드백) 로직
                     if wrong_list:
-                        st.error(f"🚨 {len(wrong_list)}문제 틀렸습니다.")
-                        st.markdown("### 💊 유형별 맞춤 처방")
+                        st.error(f"🚨 **보완이 필요한 부분 ({len(wrong_list)}문제 오답)**")
                         unique_feedback = set(get_feedback_message(w) for w in wrong_list)
                         for msg in unique_feedback:
-                            st.write(msg)
+                            st.markdown(msg) # 마크다운 적용되게 변경
+                            st.markdown("---") # 구분선
                     else:
                         st.balloons()
-                        st.success("만점입니다! 축하합니다!")
+                        st.write("### 🎉 약점이 없습니다! 완벽한 만점입니다!")
 
                 except Exception as e:
-                    st.error(f"데이터 저장 중 오류 발생: {e}")
+                    st.error(f"데이터 저장 오류: {e}")
 
 # === [탭 2] 등수 재조회 ===
 with tab2:
