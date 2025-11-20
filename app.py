@@ -398,7 +398,9 @@ with tab1:
                     st.error(f"데이터 저장 오류: {e}")
 # === [탭 2] 등수 재조회 ===
 with tab2:
-    st.header("🔍 내 등수 실시간 확인")
+    st.header("🔍 내 등수 & 피드백 다시 보기")
+    st.write("나의 등수 변화와 학습 피드백을 언제든 다시 확인하세요.")
+    
     check_id = st.text_input("학번(ID) 입력", key="check_input")
     
     if st.button("조회하기"):
@@ -408,24 +410,91 @@ with tab2:
                 records = sheet.get_all_records()
                 df = pd.DataFrame(records)
                 
-                # ID로 검색 (ID는 문자열로 변환해서 비교)
+                # ID로 검색 (문자열 변환 후 비교)
                 df['ID'] = df['ID'].astype(str) 
                 user_record = df[df['ID'] == check_id]
                 
                 if not user_record.empty:
-                    # 가장 마지막(최신) 기록 사용
+                    # 가장 최신 기록 가져오기
                     last_row = user_record.iloc[-1]
                     current_score = last_row['Score']
                     
+                    # 저장된 오답 유형 문자열을 다시 리스트로 복구
+                    # (저장할 때 " | "로 합쳤으므로, 다시 쪼갭니다)
+                    wrong_types_str = str(last_row['Wrong_Types'])
+                    if wrong_types_str.strip():
+                        wrong_list = wrong_types_str.split(" | ")
+                    else:
+                        wrong_list = [] # 다 맞은 경우
+
+                    # 실시간 등수 재계산
                     realtime_rank = df[df['Score'] > current_score].shape[0] + 1
                     total_now = len(df)
                     top_pct = (realtime_rank / total_now) * 100
                     
-                    st.success(f"반갑습니다, **{last_row['Name']}**님!")
-                    m1, m2 = st.columns(2)
+                    # 1. 점수 및 등수 표시
+                    st.success(f"반갑습니다, **{last_row['Name']}**님! 다시 오셨군요.")
+                    m1, m2, m3 = st.columns(3)
                     m1.metric("내 점수", f"{int(current_score)}점")
-                    m2.metric("현재 등수", f"{realtime_rank}등 / {total_now}명", f"상위 {top_pct:.1f}%")
+                    m2.metric("현재 실시간 등수", f"{realtime_rank}등 / {total_now}명")
+                    m3.metric("상위", f"{top_pct:.1f}%")
+                    
+                    st.markdown("---")
+
+                    # 2. 강점 분석 (칭찬) 로직 재실행
+                    st.info("🌟 **나의 강점 다시 보기**")
+                    found_any_strength = False
+
+                    # (1) 문법 패밀리
+                    grammar_keys = ["문법", "음운", "국어사전", "중세"]
+                    is_grammar_wrong = any(any(k in w_type for k in grammar_keys) for w_type in wrong_list)
+                    has_grammar_q = any(any(k in info['type'] for k in grammar_keys) for info in EXAM_DATA.values())
+                    if has_grammar_q and not is_grammar_wrong:
+                        st.write(f"- {get_strength_message('문법')}")
+                        found_any_strength = True
+
+                    # (2) 비문학 패밀리
+                    nonlit_keys = ["비문학", "철학", "경제", "건축", "기술", "과학", "인문", "사회"]
+                    is_nonlit_wrong = any(any(k in w_type for k in nonlit_keys) for w_type in wrong_list)
+                    has_nonlit_q = any(any(k in info['type'] for k in nonlit_keys) for info in EXAM_DATA.values())
+                    if has_nonlit_q and not is_nonlit_wrong:
+                        st.write(f"- {get_strength_message('비문학')}")
+                        found_any_strength = True
+
+                    # (3) 문학 패밀리
+                    lit_keys = ["시가", "작품", "시어", "소설", "각본", "서사"]
+                    is_lit_wrong = any(any(k in w_type for k in lit_keys) for w_type in wrong_list)
+                    has_lit_q = any(any(k in info['type'] for k in lit_keys) for info in EXAM_DATA.values())
+                    if has_lit_q and not is_lit_wrong:
+                        st.write(f"- {get_strength_message('문학')}")
+                        found_any_strength = True
+
+                    # (4) 고난도 패밀리
+                    hard_keys = ["적용", "보기", "준거"]
+                    is_hard_wrong = any(any(k in w_type for k in hard_keys) for w_type in wrong_list)
+                    has_hard_q = any(any(k in info['type'] for k in hard_keys) for info in EXAM_DATA.values())
+                    if has_hard_q and not is_hard_wrong:
+                        st.write(f"- {get_strength_message('보기')}")
+                        found_any_strength = True
+
+                    if not found_any_strength:
+                        st.write("- 모든 영역에서 조금씩 실수가 있었네요. 오답 정리를 통해 빈틈을 채우면 다음엔 만점입니다! 💪")
+
+                    # 3. 약점 분석 (피드백) 로직 재실행
+                    if wrong_list:
+                        st.markdown("---")
+                        st.error(f"🚨 **보완이 필요한 부분 ({len(wrong_list)}문제 오답)**")
+                        
+                        # 중복 제거 후 피드백 출력
+                        unique_feedback = set(get_feedback_message(w) for w in wrong_list)
+                        for msg in unique_feedback:
+                            st.markdown(msg)
+                            st.markdown("---")
+                    else:
+                        st.balloons()
+                        st.write("### 🎉 완벽합니다! 약점이 없는 무결점 실력입니다!")
+
                 else:
-                    st.warning("해당 학번의 기록이 없습니다.")
+                    st.warning("해당 학번의 기록이 없습니다. 답안을 먼저 제출해주세요.")
             except Exception as e:
                 st.error(f"조회 중 오류 발생: {e}")
