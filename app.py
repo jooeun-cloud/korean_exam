@@ -80,7 +80,7 @@ def create_report_html(round_name, name, score, rank, total_students, wrong_q_nu
         <style>
             body {{ 
                 font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; 
-                padding: 20px; 
+                padding: 15px; 
                 background-color: white; 
                 color: black; 
             }}
@@ -136,7 +136,7 @@ def create_report_html(round_name, name, score, rank, total_students, wrong_q_nu
     </head>
     <body>
         <div class="paper">
-            <h1>📑 {round_name} 국어 모의고사 성적표</h1>
+            <h1>📑 {round_name} 사계국어 모의고사 성적표</h1>
             
             <table>
                 <tr>
