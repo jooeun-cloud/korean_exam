@@ -598,9 +598,28 @@ with tab2:
                         for msg in unique_fb:
                             st.markdown(msg)
                             st.markdown("---")
-                            clean_msg = msg.replace(">", "💡").replace("**", "").replace("-", "•")
+                            
+                            # [수정됨] 성적표용 HTML 변환 로직 (여백 제거 + 폰트 키우기)
+                            
+                            # 1. 불필요한 기호 제거
+                            clean_msg = msg.replace(">", "💡")  # 인용구
+                            clean_msg = clean_msg.replace("**", "") # 굵은 글씨 기호
+                            clean_msg = clean_msg.replace("-", "•") # 리스트
+                            
+                            # 2. 줄바꿈 처리 (엔터를 <br>로)
                             clean_msg = clean_msg.replace("\n", "<br>")
-                            clean_msg = clean_msg.replace("###", "<br><b style='font-size:13px; color:#333;'>")
+                            
+                            # 3. [핵심!] 제목(###) 처리
+                            # - 앞에 있던 <br>을 제거했습니다 (여백 해결)
+                            # - font-size를 16px로 명시했습니다 (폰트 크기 해결)
+                            # - display:block으로 제목이 한 줄을 다 차지하게 했습니다.
+                            clean_msg = clean_msg.replace("###", "<span style='font-size:16px; font-weight:bold; display:block; margin-bottom:5px; border-bottom:1px dashed #ccc;'>")
+                            
+                            # 4. 제목 뒤에 오는 닫는 태그 처리 (약간의 꼼수)
+                            # 제목 줄 끝에 </span>을 붙여줘야 스타일이 끝납니다.
+                            # 첫 번째 <br> (제목 뒤의 엔터) 앞에 </span>을 끼워 넣습니다.
+                            clean_msg = clean_msg.replace("<br>", "</span><br>", 1) 
+                            
                             final_html += f"<div class='feedback-box'>{clean_msg}</div>"
                     else:
                         st.success("완벽합니다! 약점이 없습니다.")
