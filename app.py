@@ -60,43 +60,116 @@ EXAM_DB = {
 
 
 # --- [2] 성적표 HTML 생성 함수 ---
+# --- [수정됨] 성적표 HTML 생성 함수 ---
 def create_report_html(round_name, name, score, rank, total_students, wrong_q_nums, wrong_list, feedback_text):
     now = datetime.now().strftime("%Y년 %m월 %d일 %H시 %M분")
-    wrong_nums_str = ", ".join(wrong_q_nums) + "번" if wrong_q_nums else "없음 (만점)"
+    
+    if wrong_q_nums:
+        wrong_nums_str = ", ".join(wrong_q_nums) + "번"
+    else:
+        wrong_nums_str = "없음 (만점)"
 
     html = f"""
-    <html>
+    <!DOCTYPE html>
+    <html lang="ko">
     <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        
+        <title>{name} 학생 성적표</title>
         <style>
-            body {{ font-family: 'Malgun Gothic', sans-serif; padding: 20px; }}
-            .paper {{ max-width: 800px; margin: 0 auto; border: 2px solid #333; padding: 30px; }}
-            h1 {{ text-align: center; border-bottom: 2px solid black; padding-bottom: 15px; }}
-            table {{ width: 100%; border-collapse: collapse; margin-bottom: 20px; }}
-            th, td {{ border: 1px solid black; padding: 10px; text-align: center; }}
-            th {{ background-color: #f0f0f0; }}
-            .score {{ font-size: 32px; font-weight: bold; color: black; }}
-            .feedback-box {{ border: 1px solid black; padding: 15px; margin-bottom: 10px; }}
+            body {{ 
+                font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; 
+                padding: 20px; 
+                background-color: white; 
+                color: black; 
+            }}
+            .paper {{ 
+                max-width: 800px; 
+                margin: 0 auto; 
+                border: 2px solid #333; 
+                padding: 30px; 
+            }}
+            h1 {{ 
+                text-align: center; 
+                border-bottom: 2px solid black; 
+                padding-bottom: 15px; 
+                margin-bottom: 30px; 
+            }}
+            table {{ 
+                width: 100%; 
+                border-collapse: collapse; 
+                margin-bottom: 20px; 
+            }}
+            th, td {{ 
+                border: 1px solid black; 
+                padding: 10px; 
+                text-align: center; 
+            }}
+            th {{ 
+                background-color: #f8f9fa; 
+                font-weight: bold;
+                width: 20%;
+            }}
+            .score {{ 
+                font-size: 32px; 
+                font-weight: bold; 
+                color: black; 
+            }}
+            .score-box {{
+                border: 1px solid black;
+                padding: 15px;
+                margin-bottom: 20px;
+            }}
+            .feedback-box {{ 
+                border: 1px solid black; 
+                padding: 15px; 
+                margin-bottom: 10px; 
+            }}
+            .footer {{
+                text-align: center;
+                margin-top: 30px;
+                font-size: 12px;
+                color: #555;
+            }}
         </style>
     </head>
     <body>
         <div class="paper">
             <h1>📑 {round_name} 국어 모의고사 성적표</h1>
+            
             <table>
-                <tr><th>이 름</th><td>{name}</td><th>응시일</th><td>{now}</td></tr>
-                <tr><th>점 수</th><td><span class="score">{int(score)}</span> 점</td><th>등 수</th><td>{rank} / {total_students}</td></tr>
+                <tr>
+                    <th>이 름</th>
+                    <td>{name}</td>
+                    <th>응시일</th>
+                    <td>{now}</td>
+                </tr>
+                <tr>
+                    <th>점 수</th>
+                    <td><span class="score">{int(score)}</span> 점</td>
+                    <th>등 수</th>
+                    <td>{rank}등 / {total_students}명</td>
+                </tr>
             </table>
-            <div style="border: 1px solid black; padding: 15px; margin-bottom: 20px;">
-                <strong>[ 틀린 문제 번호 ]</strong><br>{wrong_nums_str}
+
+            <div class="score-box">
+                <strong>[ 틀린 문제 번호 ]</strong><br>
+                <div style="margin-top:5px; font-size:18px;">{wrong_nums_str}</div>
             </div>
+
             <h3>💊 유형별 상세 처방</h3>
             {feedback_text}
-            <div style="text-align: center; margin-top: 30px; font-size: 12px;">Designed by AI Teacher</div>
+            
+            <div class="footer">
+                위 학생의 모의고사 결과를 증명합니다.<br>
+                Designed by AI Teacher
+            </div>
         </div>
     </body>
     </html>
     """
     return html
-
 # --- [3] 구글 시트 연결 ---
 def get_google_sheet_data():
     if "gcp_service_account" not in st.secrets:
