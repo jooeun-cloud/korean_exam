@@ -68,50 +68,117 @@ EXAM_DB = {
 }
 
 # --- [2] 성적표 HTML 생성 함수 (한글깨짐 방지 + 디자인) ---
-def create_report_html(grade, round_name, name, score, rank, total_students, wrong_q_nums, wrong_list, feedback_text):
+# --- [1] 성적표 HTML 생성 함수 (유형별 번호 매핑 기능 추가) ---
+def create_report_html(grade, round_name, name, score, rank, total_students, wrong_data_map, feedback_func):
     now = datetime.now().strftime("%Y년 %m월 %d일 %H시 %M분")
-    wrong_nums_str = ", ".join(wrong_q_nums) + "번" if wrong_q_nums else "없음 (만점)"
+    
+    # 틀린 문제가 있는지 확인
+    has_wrong = bool(wrong_data_map)
+
+    # 피드백 섹션 HTML 조립
+    feedback_section_html = ""
+    
+    if has_wrong:
+        for q_type, q_nums in wrong_data_map.items():
+            # 번호 리스트를 문자열로 (예: "3, 5번")
+            nums_str = ", ".join([str(n) for n in q_nums]) + "번"
+            
+            # 해당 유형의 피드백 메시지 가져오기
+            msg = feedback_func(q_type)
+            
+            # HTML 변환 (마크다운 제거 및 스타일링)
+            clean_msg = msg.strip().replace(">", "💡").replace("**", "").replace("-", "•")
+            clean_msg = clean_msg.replace("\n", "<br>")
+            
+            # 제목(###) 처리
+            if clean_msg.startswith("###"):
+                parts = clean_msg.split("<br>", 1)
+                title_txt = parts[0].replace("###", "").strip()
+                body_txt = parts[1] if len(parts) > 1 else ""
+                
+                # 카드 형태로 디자인
+                feedback_section_html += f"""
+                <div class="feedback-card">
+                    <div class="card-header">
+                        <span class="card-title">{title_txt}</span>
+                        <span class="card-nums">❌ 틀린 문제: {nums_str}</span>
+                    </div>
+                    <div class="card-body">{body_txt}</div>
+                </div>
+                """
+            else:
+                # 제목 없는 일반 피드백의 경우
+                feedback_section_html += f"""
+                <div class="feedback-card">
+                    <div class="card-header"><span class="card-nums">❌ 틀린 문제: {nums_str}</span></div>
+                    <div class="card-body">{clean_msg}</div>
+                </div>
+                """
+    else:
+        feedback_section_html = """
+        <div class="feedback-card" style="border-color: #4CAF50; background-color: #E8F5E9;">
+            <h3 style="color: #2E7D32; margin:0;">🎉 완벽합니다!</h3>
+            <p style="margin:10px 0 0 0;">약점이 없습니다. 훌륭한 실력입니다.</p>
+        </div>
+        """
 
     html = f"""
     <!DOCTYPE html>
     <html lang="ko">
     <head>
         <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>{name} 성적표</title>
         <style>
-            body {{ font-family: 'Malgun Gothic', sans-serif; padding: 20px; }}
-            .paper {{ max-width: 800px; margin: 0 auto; border: 2px solid #333; padding: 30px; }}
-            h1 {{ text-align: center; border-bottom: 2px solid black; padding-bottom: 15px; }}
-            table {{ width: 100%; border-collapse: collapse; margin-bottom: 20px; }}
-            th, td {{ border: 1px solid black; padding: 10px; text-align: center; }}
-            th {{ background-color: #f8f9fa; width: 20%; font-weight: bold; }}
-            .score {{ font-size: 32px; font-weight: bold; }}
-            .score-box {{ border: 1px solid black; padding: 15px; margin-bottom: 20px; }}
-            .feedback-box {{ border: 1px solid black; padding: 5px 10px; margin-bottom: 10px; font-size: 13px; line-height: 1.4; }}
-            .footer {{ text-align: center; margin-top: 30px; font-size: 12px; color: #555; }}
+            body {{ font-family: 'Malgun Gothic', sans-serif; padding: 20px; color: #333; }}
+            .paper {{ max-width: 800px; margin: 0 auto; border: 2px solid #444; padding: 40px; }}
+            h1 {{ text-align: center; border-bottom: 3px solid #444; padding-bottom: 20px; margin-bottom: 30px; }}
+            
+            /* 정보 테이블 스타일 */
+            .info-table {{ width: 100%; border-collapse: collapse; margin-bottom: 30px; }}
+            .info-table th {{ background-color: #f4f4f4; border: 1px solid #999; padding: 12px; width: 20%; font-weight: bold; }}
+            .info-table td {{ border: 1px solid #999; padding: 12px; text-align: center; }}
+            .score {{ font-size: 36px; font-weight: bold; color: #D32F2F; }}
+            
+            /* 피드백 카드 스타일 (핵심) */
+            .feedback-card {{ 
+                border: 1px solid #999; 
+                margin-bottom: 20px; 
+                page-break-inside: avoid; /* 인쇄 시 중간에 잘리지 않게 */
+            }}
+            .card-header {{
+                background-color: #eee;
+                padding: 10px 15px;
+                border-bottom: 1px solid #ccc;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }}
+            .card-title {{ font-size: 16px; font-weight: bold; }}
+            .card-nums {{ font-size: 14px; color: #D32F2F; font-weight: bold; background: white; padding: 3px 8px; border-radius: 5px; border: 1px solid #ddd; }}
+            .card-body {{ padding: 15px; font-size: 13px; line-height: 1.6; }}
+            
+            .footer {{ text-align: center; margin-top: 50px; font-size: 12px; color: #888; }}
         </style>
     </head>
     <body>
         <div class="paper">
-            <h1>📑 {grade} {round_name} 국어 성적표</h1>
-            <table>
+            <h1>📑 {grade} {round_name} 분석 성적표</h1>
+            
+            <table class="info-table">
                 <tr><th>이 름</th><td>{name}</td><th>응시일</th><td>{now}</td></tr>
                 <tr><th>점 수</th><td><span class="score">{int(score)}</span> 점</td><th>등 수</th><td>{rank}등 / {total_students}명</td></tr>
             </table>
-            <div class="score-box">
-                <strong>[ 틀린 문제 번호 ]</strong><br>
-                <div style="margin-top:5px; font-size:18px;">{wrong_nums_str}</div>
-            </div>
-            <h3>💊 유형별 상세 처방</h3>
-            {feedback_text}
+
+            <h3 style="border-bottom: 2px solid #ddd; padding-bottom: 10px;">💊 유형별 오답 분석 및 처방</h3>
+            {feedback_section_html}
+            
             <div class="footer">위 학생의 모의고사 결과를 증명합니다.<br>Designed by AI Teacher</div>
         </div>
     </body>
     </html>
     """
     return html
-
+    
 # --- [3] 구글 시트 연결 ---
 def get_google_sheet_data():
     if "gcp_service_account" not in st.secrets:
@@ -333,6 +400,7 @@ def get_strength_message(question_type):
     return "✨ **[성실한 학습자]** 학습 이해도가 높습니다!"
 
 # --- [5] 메인 앱 ---
+# --- [5] 메인 앱 ---
 st.set_page_config(page_title="국어 모의고사 통합 시스템", page_icon="📚", layout="wide")
 st.title("📚 국어 모의고사 통합 관리 시스템")
 
@@ -341,16 +409,10 @@ tab1, tab2, tab3 = st.tabs(["📝 시험 응시하기", "🔍 결과 조회", "�
 # === [탭 1] 시험 응시 ===
 with tab1:
     st.subheader("학년과 회차를 선택하세요.")
-    
     col_g, col_r = st.columns(2)
-    
-    # 1. 학년 선택
     selected_grade = col_g.selectbox("학년 선택", list(EXAM_DB.keys()))
-    
-    # 2. 해당 학년의 회차만 보여주기
     available_rounds = list(EXAM_DB[selected_grade].keys())
     selected_round = col_r.selectbox("회차 선택", available_rounds)
-    
     current_exam_data = EXAM_DB[selected_grade][selected_round]
     
     st.info(f"📢 현재 **{selected_grade} - {selected_round}** 응시 중입니다.")
@@ -359,21 +421,17 @@ with tab1:
         c1, c2 = st.columns(2)
         name = c1.text_input("이름", placeholder="홍길동")
         student_id = c2.text_input("학번(ID)", placeholder="예: 10101")
-        
         st.markdown("---")
+        
         user_answers = {}
         cols = st.columns(4)
-        sorted_keys = sorted(current_exam_data.keys())
-        
-        for i, q_num in enumerate(sorted_keys):
-            col_idx = i % 4
-            info = current_exam_data[q_num]
-            with cols[col_idx]:
+        for i, q_num in enumerate(sorted(current_exam_data.keys())):
+            with cols[i % 4]:
+                info = current_exam_data[q_num]
                 user_answers[q_num] = st.number_input(
                     f"{q_num}번 ({info['score']}점) [{info['type']}]", 
                     min_value=1, max_value=5, step=1, key=f"q_{selected_grade}_{selected_round}_{q_num}"
                 )
-
         submit = st.form_submit_button("답안 제출하기", use_container_width=True)
 
     if submit:
@@ -417,47 +475,72 @@ with tab1:
             if is_duplicate:
                 st.error(f"⛔ **이미 제출된 기록이 있습니다.** ({selected_grade} {student_id}번)")
                 st.warning("결과 조회 탭에서 점수를 확인하세요.")
-            else:
-                # 채점
-                total_score = 0
-                wrong_list = []
-                wrong_q_nums = []
-                
-                for q, info in current_exam_data.items():
-                    if user_answers[q] == info['ans']:
-                        total_score += info['score']
-                    else:
-                        wrong_list.append(info['type'])
-                        wrong_q_nums.append(str(q))
-                
-                if sheet:
-                    try:
-                        wrong_q_str = ", ".join(wrong_q_nums) if wrong_q_nums else "없음"
-                        new_row = [
-                            selected_grade, # A열: 학년
-                            selected_round, # B열: 회차
-                            student_id,     # C열: ID
-                            name, 
-                            total_score, 
-                            " | ".join(wrong_list), 
-                            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                            wrong_q_str
-                        ]
-                        sheet.append_row(new_row)
-                        st.balloons()
-                        st.success("제출 완료! 결과 조회 탭으로 이동하세요.")
-                    except Exception as e:
-                        st.error(f"저장 오류: {e}")
+        else:
+            
+            # 1. 채점 및 그룹화 (번호와 유형 매핑)
+            total_score = 0
+            wrong_list = []   # DB 저장용 (유형 단순 나열)
+            wrong_q_nums = [] # DB 저장용 (번호 단순 나열)
+            
+            # [NEW] 유형별로 틀린 번호 묶기 (성적표용)
+            # 예: {'문법': [3, 5], '비문학': [12]}
+            wrong_map = {} 
+            
+            for q, info in current_exam_data.items():
+                if user_answers[q] == info['ans']:
+                    total_score += info['score']
+                else:
+                    q_type = info['type']
+                    wrong_list.append(q_type)
+                    wrong_q_nums.append(str(q))
+                    
+                    if q_type not in wrong_map:
+                        wrong_map[q_type] = []
+                    wrong_map[q_type].append(q)
+            
+            sheet = get_google_sheet_data()
+            if sheet:
+                try:
+                    wrong_q_str = ", ".join(wrong_q_nums) if wrong_q_nums else "없음"
+                    new_row = [
+                        selected_grade, selected_round, student_id, name, 
+                        total_score, " | ".join(wrong_list), 
+                        datetime.now().strftime("%Y-%m-%d %H:%M:%S"), 
+                        wrong_q_str
+                    ]
+                    sheet.append_row(new_row)
+                    
+                    # 등수 계산
+                    records = sheet.get_all_records()
+                    df = pd.DataFrame(records)
+                    
+                    # (필터링 로직)
+                    df_filtered = df[(df['Grade'].astype(str).str.strip() == str(selected_grade)) & 
+                                     (df['Round'].astype(str).str.strip() == str(selected_round))]
+                    rank = df_filtered[df_filtered['Score'] > total_score].shape[0] + 1
+                    total_std = len(df_filtered)
+                    
+                    # 결과 생성
+                    st.balloons()
+                    
+                    # 성적표 HTML 생성 (여기서 매핑된 wrong_map을 넘깁니다!)
+                    report = create_report_html(
+                        selected_grade, selected_round, name, total_score, rank, total_std, 
+                        wrong_map, get_feedback_message
+                    )
+                    
+                    st.success("제출이 완료되었습니다! 아래 버튼을 눌러 성적표를 저장하세요.")
+                    st.download_button("📥 성적표 즉시 다운로드", report, file_name="성적표.html", mime="text/html")
+                    
+                except Exception as e:
+                    st.error(f"저장 오류: {e}")
 
 # === [탭 2] 결과 조회 ===
 with tab2:
     st.header("🔍 성적표 조회")
-    
     c_g, c_r = st.columns(2)
     chk_grade = c_g.selectbox("학년", list(EXAM_DB.keys()), key="chk_grade")
-    chk_rounds = list(EXAM_DB[chk_grade].keys())
-    chk_round = c_r.selectbox("회차", chk_rounds, key="chk_round")
-    
+    chk_round = c_r.selectbox("회차", list(EXAM_DB[chk_grade].keys()), key="chk_round")
     chk_id = st.text_input("학번(ID) 입력", key="chk_id")
     
     if st.button("조회하기"):
@@ -467,19 +550,16 @@ with tab2:
                 records = sheet.get_all_records()
                 df = pd.DataFrame(records)
                 
-                # 전처리
+                # 전처리 및 검색 로직 (0처리 포함)
                 df['Grade'] = df['Grade'].astype(str).str.strip()
                 df['Round'] = df['Round'].astype(str).str.strip()
                 df['ID'] = df['ID'].astype(str)
-                
                 def normalize(val):
                     try: return str(int(val))
                     except: return str(val).strip()
-                
                 df['ID_Clean'] = df['ID'].apply(normalize)
                 in_id = normalize(chk_id)
                 
-                # 3가지 조건(학년, 회차, ID) 모두 일치해야 함
                 my_data = df[
                     (df['Grade'] == str(chk_grade)) &
                     (df['Round'] == str(chk_round)) &
@@ -489,12 +569,13 @@ with tab2:
                 if not my_data.empty:
                     last_row = my_data.iloc[-1]
                     
-                    # 등수 계산 (같은 학년, 같은 회차 내에서만 비교)
+                    # 등수 계산
                     round_data = df[(df['Grade'] == str(chk_grade)) & (df['Round'] == str(chk_round))]
                     rank = round_data[round_data['Score'] > last_row['Score']].shape[0] + 1
                     total = len(round_data)
                     pct = (rank / total) * 100
                     
+                    # 화면 출력
                     st.divider()
                     st.subheader(f"📢 {chk_grade} {last_row['Name']}님의 결과")
                     m1, m2, m3 = st.columns(3)
@@ -502,71 +583,57 @@ with tab2:
                     m2.metric("등수", f"{rank} / {total}")
                     m3.metric("상위", f"{pct:.1f}%")
                     
-                    # (이하 피드백 출력 로직은 기존과 동일 - 생략 없이 그대로 사용)
-                    w_q = str(last_row['Wrong_Questions']) if 'Wrong_Questions' in last_row else "없음"
-                    if w_q != "없음" and w_q.strip():
-                         st.error(f"❌ 틀린 문제: {w_q}번")
-                    else:
-                         st.success("⭕ 만점입니다!")
-
-                    w_types = str(last_row['Wrong_Types']).split(" | ") if str(last_row['Wrong_Types']).strip() else []
+                    # [핵심] 저장된 틀린 번호를 바탕으로 다시 '유형별 매핑' 복원
+                    # DB에는 "3, 5" 같은 문자열만 있으므로, EXAM_DB를 뒤져서 유형을 다시 찾아내야 함
+                    current_db = EXAM_DB[chk_grade][chk_round]
+                    wrong_map_restored = {}
                     
-                    # 강점 분석
-                    st.info("🌟 **나의 강점**")
-                    found_str = False
-                    target_exam = EXAM_DB[chk_grade][chk_round]
+                    w_q_str = str(last_row['Wrong_Questions']) if 'Wrong_Questions' in last_row else ""
                     
-                    keys_map = {
-                        "문법": ["문법", "음운", "중세"],
-                        "비문학": ["비문학", "철학", "경제", "기술", "과학"],
-                        "문학": ["문학", "시가", "소설"],
-                        "보기": ["보기", "적용"]
-                    }
-                    
-                    for label, keywords in keys_map.items():
-                        is_wrong = any(any(k in w for k in keywords) for w in w_types)
-                        has_q = any(any(k in info['type'] for k in keywords) for info in target_exam.values())
+                    if w_q_str and w_q_str != "없음":
+                        w_nums = [int(x.strip()) for x in w_q_str.split(",") if x.strip().isdigit()]
+                        st.error(f"❌ 틀린 문제: {w_q_str}번")
                         
-                        if has_q and not is_wrong:
-                            st.write(f"- {get_strength_message(label)}")
-                            found_str = True
-                    
-                    if not found_str: st.write("- 이번엔 골고루 실수가 있었네요.")
-                    
-                    # 약점 피드백
-                    final_html = ""
-                    if w_types:
-                        st.markdown("---")
-                        st.warning("💡 상세 피드백")
-                        unique_fb = set(get_feedback_message(w) for w in w_types)
-                        for msg in unique_fb:
-                            st.markdown(msg)
-                            st.markdown("---")
-                            
-                            # HTML 변환
-                            clean_msg = msg.strip().replace(">", "💡").replace("**", "").replace("-", "•")
-                            clean_msg = clean_msg.replace("\n", "<br>")
-                            if clean_msg.startswith("###"):
-                                parts = clean_msg.split("<br>", 1)
-                                title = parts[0].replace("###", "").strip()
-                                body = parts[1] if len(parts) > 1 else ""
-                                clean_msg = f"<div style='font-size:16px; font-weight:bold; border-bottom:1px dashed #ccc; margin-bottom:5px;'>{title}</div><div>{body}</div>"
-                            
-                            final_html += f"<div class='feedback-box'>{clean_msg}</div>"
+                        # 번호를 가지고 유형 다시 찾기
+                        for q_num in w_nums:
+                            # 혹시 DB 수정으로 문제가 사라졌을 경우 대비
+                            if q_num in current_db:
+                                q_type = current_db[q_num]['type']
+                                if q_type not in wrong_map_restored:
+                                    wrong_map_restored[q_type] = []
+                                wrong_map_restored[q_type].append(q_num)
                     else:
-                        final_html = "<div class='feedback-box'><h3>🎉 완벽합니다!</h3>약점이 없습니다.</div>"
-                    
-                    # 다운로드
-                    w_nums = w_q.split(", ") if w_q != "없음" else []
-                    report = create_report_html(chk_grade, chk_round, last_row['Name'], last_row['Score'], rank, total, w_nums, w_types, final_html)
-                    st.download_button("📥 성적표 다운로드", report, file_name="성적표.html", mime="text/html")
-                    with st.expander("📱 모바일 저장 방법"):
-                        st.write("크롬에서 파일 열기 > 공유 > 인쇄 > PDF로 저장")
+                        st.success("⭕ 만점입니다!")
 
+                    # 화면에 피드백 카드 보여주기
+                    if wrong_map_restored:
+                        st.markdown("---")
+                        st.write("### 💡 상세 분석")
+                        for q_type, nums in wrong_map_restored.items():
+                            nums_txt = ", ".join(map(str, nums))
+                            msg = get_feedback_message(q_type)
+                            
+                            # 화면용 마크다운 출력
+                            with st.expander(f"❌ {q_type} (틀린 문제: {nums_txt}번) - 클릭해서 처방 보기", expanded=True):
+                                st.markdown(msg)
+                    elif w_q_str == "없음" or not w_q_str:
+                         st.balloons()
+                         st.info("약점이 없습니다. 완벽합니다!")
+
+                    # 다운로드 버튼
+                    st.write("---")
+                    report = create_report_html(
+                        chk_grade, chk_round, last_row['Name'], last_row['Score'], 
+                        rank, total, wrong_map_restored, get_feedback_message
+                    )
+                    st.download_button("📥 성적표 다운로드", report, file_name="성적표.html", mime="text/html")
+                    
                 else:
-                    st.error("기록이 없습니다. (학년/회차/ID 확인)")
+                    st.error("기록이 없습니다.")
             except Exception as e:
                 st.error(f"오류: {e}")
+
+
 
 # === [탭 3] 종합 기록부 ===
 with tab3:
