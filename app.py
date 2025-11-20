@@ -112,7 +112,7 @@ def create_report_html(round_name, name, score, rank, total_students, wrong_q_nu
                 width: 20%;
             }}
             .score {{ 
-                font-size: 32px; 
+                font-size: 30px; 
                 font-weight: bold; 
                 color: black; 
             }}
@@ -129,7 +129,7 @@ def create_report_html(round_name, name, score, rank, total_students, wrong_q_nu
             .footer {{
                 text-align: center;
                 margin-top: 30px;
-                font-size: 12px;
+                font-size: 8px;
                 color: #555;
             }}
         </style>
@@ -598,7 +598,7 @@ with tab2:
                             st.markdown("---")
                             clean_msg = msg.replace(">", "💡").replace("**", "").replace("-", "•")
                             clean_msg = clean_msg.replace("\n", "<br>")
-                            clean_msg = clean_msg.replace("###", "<br><b style='font-size:18px; color:#333;'>")
+                            clean_msg = clean_msg.replace("###", "<br><b style='font-size:10px; color:#333;'>")
                             final_html += f"<div class='feedback-box'>{clean_msg}</div>"
                     else:
                         st.success("완벽합니다! 약점이 없습니다.")
