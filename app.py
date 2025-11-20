@@ -596,36 +596,44 @@ with tab2:
                         unique_fb = set(get_feedback_message(w) for w in w_types)
                         
                         for msg in unique_fb:
+                            # 1. 화면 출력 (마크다운)
                             st.markdown(msg)
                             st.markdown("---")
                             
-                            # [수정됨] 제목과 본문을 확실하게 분리하는 로직
+                            # [수정됨] 성적표용 HTML 변환 로직 (공백 제거 기능 추가)
                             
-                            # 1. 기본 마크다운 기호 제거 (공통)
-                            temp_msg = msg.replace("**", "").replace("-", "•").replace(">", "💡")
+                            # (1) 앞뒤 불필요한 줄바꿈/공백 제거 (이게 핵심!)
+                            # 이걸 해야 "###"가 문장 맨 앞으로 와서 인식이 됩니다.
+                            clean_str = msg.strip() 
                             
-                            clean_msg = ""
+                            # (2) 기본 마크다운 기호 제거
+                            clean_str = clean_str.replace("**", "").replace(">", "💡").replace("- ", "• ")
                             
-                            # 2. '###' (제목)이 있는지 확인
-                            if "###" in temp_msg:
-                                # 엔터(\n)를 기준으로 첫 번째 줄(제목)과 나머지(본문)를 쪼갭니다.
-                                parts = temp_msg.split("\n", 1)
+                            # (3) 제목(###)과 본문 분리 로직
+                            html_content = ""
+                            
+                            # 문장이 "###"으로 시작하는지 확인
+                            if clean_str.startswith("###"):
+                                # 첫 번째 줄바꿈을 기준으로 제목과 본문을 쪼갭니다.
+                                parts = clean_str.split("\n", 1)
                                 
-                                title_part = parts[0].replace("###", "").strip()
-                                body_part = parts[1].strip() if len(parts) > 1 else ""
+                                # 제목 부분 (### 제거)
+                                title_txt = parts[0].replace("###", "").strip()
+                                # 본문 부분 (나머지 다)
+                                body_txt = parts[1].strip() if len(parts) > 1 else ""
                                 
-                                # (1) 제목 스타일링 (16px, 굵게, 밑줄)
-                                title_html = f"<div style='font-size:16px; font-weight:bold; border-bottom:1px dashed #ccc; margin-bottom:5px; padding-bottom:3px;'>{title_part}</div>"
+                                # HTML 조립
+                                # 제목: 16px, 굵게, 밑줄
+                                title_html = f"<div style='font-size:16px; font-weight:bold; border-bottom:1px dashed #ccc; margin-bottom:8px; padding-bottom:5px; color:#000;'>{title_txt}</div>"
+                                # 본문: 13px (CSS 따라감), 줄바꿈 처리
+                                body_html = f"<div>{body_txt.replace(chr(10), '<br>')}</div>"
                                 
-                                # (2) 본문 스타일링 (줄바꿈 처리만 -> CSS의 기본 13px를 따라감)
-                                body_html = body_part.replace("\n", "<br>")
-                                
-                                clean_msg = title_html + body_html
+                                html_content = title_html + body_html
                             else:
-                                # 제목이 없는 경우 그냥 줄바꿈만 처리
-                                clean_msg = temp_msg.replace("\n", "<br>")
+                                # 제목이 없는 경우 (그냥 본문 처리)
+                                html_content = f"<div>{clean_str.replace(chr(10), '<br>')}</div>"
                             
-                            final_html += f"<div class='feedback-box'>{clean_msg}</div>"
+                            final_html += f"<div class='feedback-box'>{html_content}</div>"
                     else:
                         st.success("완벽합니다! 약점이 없습니다.")
                         final_html = "<div class='feedback-box'><h3>🎉 완벽합니다!</h3>틀린 문제가 없어 학습 처방이 없습니다.</div>"
