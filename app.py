@@ -4,30 +4,91 @@ from datetime import datetime
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
-# --- [추가] 성적표 HTML 생성 함수 ---
+# --- [수정] 성적표 HTML 생성 함수 (심플 버전) ---
 def create_report_html(name, score, rank, total_students, wrong_q_nums, wrong_list, feedback_text):
+    # 현재 시간
     now = datetime.now().strftime("%Y년 %m월 %d일 %H시 %M분")
     
+    # 틀린 번호 텍스트
     if wrong_q_nums:
         wrong_nums_str = ", ".join(wrong_q_nums) + "번"
     else:
         wrong_nums_str = "없음 (만점)"
 
+    # HTML 디자인 (흰 배경 + 검은 글씨)
     html = f"""
     <html>
     <head>
         <style>
-            body {{ font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; padding: 40px; background-color: #f0f0f0; }}
-            .paper {{ background-color: white; padding: 50px; max-width: 800px; margin: 0 auto; border: 1px solid #ccc; box-shadow: 5px 5px 15px rgba(0,0,0,0.1); }}
-            h1 {{ text-align: center; color: #333; border-bottom: 2px solid #333; padding-bottom: 20px; }}
-            .info-table {{ width: 100%; border-collapse: collapse; margin-bottom: 30px; }}
-            .info-table th {{ background-color: #eee; padding: 10px; border: 1px solid #ddd; width: 30%; }}
-            .info-table td {{ padding: 10px; border: 1px solid #ddd; text-align: center; font-weight: bold; }}
-            .score-box {{ text-align: center; padding: 20px; background-color: #f9f9f9; border-radius: 10px; margin: 20px 0; }}
-            .score {{ font-size: 40px; color: #d32f2f; font-weight: bold; }}
-            .feedback-section {{ margin-top: 30px; line-height: 1.6; }}
-            .feedback-box {{ background-color: #fff8e1; padding: 15px; border-left: 5px solid #ffb300; margin-bottom: 15px; }}
-            .footer {{ margin-top: 50px; text-align: center; color: #888; font-size: 12px; }}
+            /* 인쇄 시 배경 그래픽 제거 및 폰트 설정 */
+            body {{ 
+                font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; 
+                padding: 20px; 
+                background-color: white; 
+                color: black; 
+            }}
+            .paper {{ 
+                max-width: 800px; 
+                margin: 0 auto; 
+                /* 그림자/배경색 제거 */
+                background-color: white; 
+                border: none; 
+            }}
+            h1 {{ 
+                text-align: center; 
+                border-bottom: 2px solid black; 
+                padding-bottom: 15px; 
+                margin-bottom: 30px; 
+            }}
+            .info-table {{ 
+                width: 100%; 
+                border-collapse: collapse; 
+                margin-bottom: 20px; 
+            }}
+            .info-table th {{ 
+                border: 1px solid black; 
+                padding: 10px; 
+                text-align: center; 
+                background-color: white; /* 배경 흰색 */
+                font-weight: bold;
+            }}
+            .info-table td {{ 
+                border: 1px solid black; 
+                padding: 10px; 
+                text-align: center; 
+            }}
+            .score-box {{ 
+                text-align: center; 
+                padding: 20px; 
+                border: 2px solid black; /* 검은 테두리 */
+                margin: 20px 0; 
+            }}
+            .score {{ 
+                font-size: 32px; 
+                font-weight: bold; 
+                margin-top: 10px;
+            }}
+            .feedback-section {{ 
+                margin-top: 30px; 
+                line-height: 1.6; 
+            }}
+            .feedback-box {{ 
+                border: 1px solid black; /* 색깔 박스 대신 검은 테두리 */
+                padding: 15px; 
+                margin-bottom: 15px; 
+            }}
+            .feedback-box h3 {{
+                margin-top: 0;
+                border-bottom: 1px dashed black;
+                padding-bottom: 5px;
+            }}
+            .footer {{ 
+                margin-top: 50px; 
+                text-align: center; 
+                font-size: 12px; 
+                border-top: 1px solid #ccc;
+                padding-top: 20px;
+            }}
         </style>
     </head>
     <body>
@@ -36,22 +97,22 @@ def create_report_html(name, score, rank, total_students, wrong_q_nums, wrong_li
             
             <table class="info-table">
                 <tr>
-                    <th>이름</th>
+                    <th>이 름</th>
                     <td>{name}</td>
                     <th>응시일자</th>
                     <td>{now}</td>
                 </tr>
                 <tr>
                     <th>내 점수</th>
-                    <td style="color: blue;">{int(score)}점</td>
+                    <td><span class="score">{int(score)}</span> 점</td>
                     <th>전체 등수</th>
                     <td>{rank}등 / {total_students}명</td>
                 </tr>
             </table>
 
             <div class="score-box">
-                <div>틀린 문제 번호</div>
-                <div style="font-size: 18px; margin-top: 5px;">❌ {wrong_nums_str}</div>
+                <div style="font-weight:bold;">[ 틀린 문제 번호 ]</div>
+                <div style="font-size: 18px; margin-top: 10px;">{wrong_nums_str}</div>
             </div>
 
             <div class="feedback-section">
@@ -68,7 +129,6 @@ def create_report_html(name, score, rank, total_students, wrong_q_nums, wrong_li
     </html>
     """
     return html
-
 # --- 1. 구글 시트 인증 및 연결 설정 ---
 def get_google_sheet_data():
     if "gcp_service_account" not in st.secrets:
