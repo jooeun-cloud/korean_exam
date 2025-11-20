@@ -478,13 +478,13 @@ with tab1:
             else:
             
             # 1. 채점 및 그룹화 (번호와 유형 매핑)
-            total_score = 0
-            wrong_list = []   # DB 저장용 (유형 단순 나열)
-            wrong_q_nums = [] # DB 저장용 (번호 단순 나열)
+                total_score = 0
+                wrong_list = []   # DB 저장용 (유형 단순 나열)
+                wrong_q_nums = [] # DB 저장용 (번호 단순 나열)
             
             # [NEW] 유형별로 틀린 번호 묶기 (성적표용)
             # 예: {'문법': [3, 5], '비문학': [12]}
-            wrong_map = {} 
+                wrong_map = {} 
             
             for q, info in current_exam_data.items():
                 if user_answers[q] == info['ans']:
