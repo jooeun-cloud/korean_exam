@@ -152,22 +152,20 @@ with tab1:
         else:
             # 1. 채점 및 유형 분석
             total_score = 0
-            wrong_list = []     # 틀린 유형 리스트
-            correct_list = []   # 맞은 유형 리스트
+            wrong_list = []
             
             for q, info in EXAM_DATA.items():
                 if user_answers[q] == info['ans']:
                     total_score += info['score']
-                    correct_list.append(info['type']) # 맞은 유형 저장
                 else:
-                    wrong_list.append(info['type']) # 틀린 유형 저장
+                    wrong_list.append(info['type'])
             
-            # 2. 구글 시트에 저장 (기존 코드와 동일)
+            # 2. 구글 시트에 저장
             sheet = get_google_sheet_data()
             if sheet:
                 try:
+                    # 데이터 저장
                     records = sheet.get_all_records()
-                    df = pd.DataFrame(records)
                     new_row = [
                         student_id, name, total_score, 
                         " | ".join(wrong_list), 
@@ -176,13 +174,13 @@ with tab1:
                     sheet.append_row(new_row)
                     
                     # 등수 계산
-                    records = sheet.get_all_records()
+                    records = sheet.get_all_records() # 업데이트된 데이터 다시 로드
                     df = pd.DataFrame(records)
                     my_rank = df[df['Score'] > total_score].shape[0] + 1
                     total_students = len(df)
                     percentile = (my_rank / total_students) * 100
                     
-                    # --- 3. 결과 화면 출력 (여기부터 디자인 변경) ---
+                    # --- 3. 결과 화면 출력 ---
                     st.divider()
                     st.subheader(f"📢 {name}님의 분석 결과")
                     
@@ -194,44 +192,68 @@ with tab1:
                     
                     st.markdown("---")
 
-                    # [A] 강점 분석 (칭찬) 로직
-                    # 전체 틀린 유형에 포함되지 않은 키워드를 찾아서 칭찬
-                    # (예: 문법 문제를 하나도 안 틀렸으면 문법 칭찬)
-                    st.success("🌟 **나의 강점 발견! (칭찬해 주세요)**")
+                    # === [A] 강점 분석 (로직 수정됨) ===
+                    # 이제 '음운'을 틀려도 '문법' 칭찬이 나오지 않도록 그룹으로 묶어서 검사합니다.
                     
-                    strength_keywords = ["문법", "비문학", "문학", "보기"]
-                    found_strength = False
-                    
-                    # 틀린 유형들을 하나의 긴 문자열로 합침 (검색 편하게)
-                    wrong_str = " ".join(wrong_list)
-                    
-                    for keyword in strength_keywords:
-                        # 해당 키워드 문제가 시험에 있었는지 확인 (EXAM_DATA 전체 탐색)
-                        keyword_exists = any(keyword in info['type'] for info in EXAM_DATA.values())
-                        
-                        # 시험에 그 유형이 있었고 + 나는 하나도 안 틀렸다면? -> 칭찬!
-                        if keyword_exists and (keyword not in wrong_str):
-                            msg = get_strength_message(keyword)
-                            st.write(f"- {msg}")
-                            found_strength = True
-                            
-                    if not found_strength:
-                        st.write("- 골고루 조금씩 실수가 있었네요! 하지만 다음엔 완벽해질 수 있어요. 화이팅!")
+                    st.success("🌟 **나의 강점 발견!**")
+                    found_any_strength = False
 
-                    # [B] 약점 분석 (피드백) 로직
+                    # 1. 문법/어휘 패밀리 검사
+                    grammar_keys = ["문법", "음운", "국어사전", "중세"]
+                    # 문법 관련 문제를 하나라도 틀렸는지 확인
+                    is_grammar_wrong = any(any(k in w_type for k in grammar_keys) for w_type in wrong_list)
+                    # 시험에 문법 문제가 존재하는지 확인
+                    has_grammar_q = any(any(k in info['type'] for k in grammar_keys) for info in EXAM_DATA.values())
+
+                    if has_grammar_q and not is_grammar_wrong:
+                        st.write(f"- {get_strength_message('문법')}")
+                        found_any_strength = True
+
+                    # 2. 비문학 패밀리 검사
+                    nonlit_keys = ["비문학", "철학", "경제", "건축"]
+                    is_nonlit_wrong = any(any(k in w_type for k in nonlit_keys) for w_type in wrong_list)
+                    has_nonlit_q = any(any(k in info['type'] for k in nonlit_keys) for info in EXAM_DATA.values())
+
+                    if has_nonlit_q and not is_nonlit_wrong:
+                        st.write(f"- {get_strength_message('비문학')}")
+                        found_any_strength = True
+
+                    # 3. 문학 패밀리 검사
+                    lit_keys = ["시가", "작품", "시어", "소설", "각본"]
+                    is_lit_wrong = any(any(k in w_type for k in lit_keys) for w_type in wrong_list)
+                    has_lit_q = any(any(k in info['type'] for k in lit_keys) for info in EXAM_DATA.values())
+
+                    if has_lit_q and not is_lit_wrong:
+                        st.write(f"- {get_strength_message('문학')}")
+                        found_any_strength = True
+
+                    # 4. 고난도/보기 패밀리 검사
+                    hard_keys = ["적용", "보기", "준거"]
+                    is_hard_wrong = any(any(k in w_type for k in hard_keys) for w_type in wrong_list)
+                    has_hard_q = any(any(k in info['type'] for k in hard_keys) for info in EXAM_DATA.values())
+
+                    if has_hard_q and not is_hard_wrong:
+                        st.write(f"- {get_strength_message('보기')}")
+                        found_any_strength = True
+
+                    # 칭찬할 게 하나도 없을 때 (골고루 틀렸을 때)
+                    if not found_any_strength:
+                        st.write("- 모든 영역에서 조금씩 실수가 있었네요. 오답 정리를 통해 빈틈을 채우면 다음엔 만점입니다! 💪")
+
+                    # === [B] 약점 분석 (피드백) ===
                     if wrong_list:
+                        st.markdown("---")
                         st.error(f"🚨 **보완이 필요한 부분 ({len(wrong_list)}문제 오답)**")
                         unique_feedback = set(get_feedback_message(w) for w in wrong_list)
                         for msg in unique_feedback:
-                            st.markdown(msg) # 마크다운 적용되게 변경
-                            st.markdown("---") # 구분선
+                            st.markdown(msg)
+                            st.markdown("---")
                     else:
                         st.balloons()
-                        st.write("### 🎉 약점이 없습니다! 완벽한 만점입니다!")
+                        st.write("### 🎉 완벽합니다! 약점이 없는 무결점 실력입니다!")
 
                 except Exception as e:
                     st.error(f"데이터 저장 오류: {e}")
-
 # === [탭 2] 등수 재조회 ===
 with tab2:
     st.header("🔍 내 등수 실시간 확인")
