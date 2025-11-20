@@ -124,7 +124,9 @@ def create_report_html(round_name, name, score, rank, total_students, wrong_q_nu
             .feedback-box {{ 
                 border: 1px solid black; 
                 padding: 15px; 
-                margin-bottom: 10px; 
+                margin-bottom: 10px;
+                font-size: 13px
+                line_height: 1.4
             }}
             .footer {{
                 text-align: center;
