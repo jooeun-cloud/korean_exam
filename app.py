@@ -423,7 +423,7 @@ with tab1:
                     except Exception as e:
                         st.error(f"저장 오류: {e}")
 
-# === [탭 2] 결과 조회 (특정 회차) ===
+
 # === [탭 2] 결과 조회 (특정 회차) ===
 with tab2:
     st.header("🔍 회차별 결과 조회")
