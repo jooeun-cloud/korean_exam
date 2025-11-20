@@ -599,26 +599,31 @@ with tab2:
                             st.markdown(msg)
                             st.markdown("---")
                             
-                            # [수정됨] 성적표용 HTML 변환 로직 (여백 제거 + 폰트 키우기)
+                            # [수정됨] 제목과 본문을 확실하게 분리하는 로직
                             
-                            # 1. 불필요한 기호 제거
-                            clean_msg = msg.replace(">", "💡")  # 인용구
-                            clean_msg = clean_msg.replace("**", "") # 굵은 글씨 기호
-                            clean_msg = clean_msg.replace("-", "•") # 리스트
+                            # 1. 기본 마크다운 기호 제거 (공통)
+                            temp_msg = msg.replace("**", "").replace("-", "•").replace(">", "💡")
                             
-                            # 2. 줄바꿈 처리 (엔터를 <br>로)
-                            clean_msg = clean_msg.replace("\n", "<br>")
+                            clean_msg = ""
                             
-                            # 3. [핵심!] 제목(###) 처리
-                            # - 앞에 있던 <br>을 제거했습니다 (여백 해결)
-                            # - font-size를 16px로 명시했습니다 (폰트 크기 해결)
-                            # - display:block으로 제목이 한 줄을 다 차지하게 했습니다.
-                            clean_msg = clean_msg.replace("###", "<span style='font-size:16px; font-weight:bold; display:block; margin-bottom:5px; border-bottom:1px dashed #ccc;'>")
-                            
-                            # 4. 제목 뒤에 오는 닫는 태그 처리 (약간의 꼼수)
-                            # 제목 줄 끝에 </span>을 붙여줘야 스타일이 끝납니다.
-                            # 첫 번째 <br> (제목 뒤의 엔터) 앞에 </span>을 끼워 넣습니다.
-                            clean_msg = clean_msg.replace("<br>", "</span><br>", 1) 
+                            # 2. '###' (제목)이 있는지 확인
+                            if "###" in temp_msg:
+                                # 엔터(\n)를 기준으로 첫 번째 줄(제목)과 나머지(본문)를 쪼갭니다.
+                                parts = temp_msg.split("\n", 1)
+                                
+                                title_part = parts[0].replace("###", "").strip()
+                                body_part = parts[1].strip() if len(parts) > 1 else ""
+                                
+                                # (1) 제목 스타일링 (16px, 굵게, 밑줄)
+                                title_html = f"<div style='font-size:16px; font-weight:bold; border-bottom:1px dashed #ccc; margin-bottom:5px; padding-bottom:3px;'>{title_part}</div>"
+                                
+                                # (2) 본문 스타일링 (줄바꿈 처리만 -> CSS의 기본 13px를 따라감)
+                                body_html = body_part.replace("\n", "<br>")
+                                
+                                clean_msg = title_html + body_html
+                            else:
+                                # 제목이 없는 경우 그냥 줄바꿈만 처리
+                                clean_msg = temp_msg.replace("\n", "<br>")
                             
                             final_html += f"<div class='feedback-box'>{clean_msg}</div>"
                     else:
