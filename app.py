@@ -475,7 +475,7 @@ with tab1:
             if is_duplicate:
                 st.error(f"⛔ **이미 제출된 기록이 있습니다.** ({selected_grade} {student_id}번)")
                 st.warning("결과 조회 탭에서 점수를 확인하세요.")
-        else:
+            else:
             
             # 1. 채점 및 그룹화 (번호와 유형 매핑)
             total_score = 0
