@@ -63,7 +63,7 @@ EXAM_DATA = {
 
 def get_feedback_message(question_type):
     if "문법" in question_type or "음운" in question_type or "국어사전" in question_type or "중세" in question_type:
-        return "🔧 **[문법/어휘]** 개념 정리가 부족합니다. 음운 변동과 문법 요소를 다시 학습하세요."
+        return "🔧 **[문법/어휘]** 단순히 개념을 외우는 것을 넘어, 실제 예문에 적용하는 연습이 부족해 보입니다. \n 특히 '음운의 변동' 규칙 4가지(교체, 탈락, 첨가, 축약)를 백지에 써보면서 복습하세요."
     elif "비문학" in question_type:
         return "📚 **[비문학 독서]** 지문의 핵심 정보와 세부 내용을 대조하는 훈련이 필요합니다."
     elif "시가" in question_type or "작품" in question_type or "시어" in question_type or "소설" in question_type or "각본" in question_type:
