@@ -457,10 +457,22 @@ with tab2:
             try:
                 records = sheet.get_all_records()
                 df = pd.DataFrame(records)
-                df['ID'] = df['ID'].astype(str)
                 
-                # 데이터 찾기
-                my_data = df[(df['ID'] == check_id) & (df['Round'] == check_round)]
+                # === [여기부터 수정] 강력한 데이터 전처리 ===
+                # 1. 모든 데이터를 문자열(글자)로 바꿉니다.
+                df['ID'] = df['ID'].astype(str)
+                df['Round'] = df['Round'].astype(str)
+                
+                # 2. 앞뒤 공백을 싹 제거합니다. (" 101 " -> "101")
+                df['ID'] = df['ID'].str.strip()
+                df['Round'] = df['Round'].str.strip()
+                
+                # 3. 입력받은 검색어(ID, 회차)도 공백을 제거합니다.
+                clean_check_id = str(check_id).strip()
+                clean_check_round = str(check_round).strip()
+                
+                # 4. 깨끗해진 데이터끼리 비교합니다.
+                my_data = df[(df['ID'] == clean_check_id) & (df['Round'] == clean_check_round)]
                 
                 if not my_data.empty:
                     last_row = my_data.iloc[-1]
