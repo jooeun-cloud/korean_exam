@@ -112,7 +112,7 @@ def create_report_html(round_name, name, score, rank, total_students, wrong_q_nu
                 width: 20%;
             }}
             .score {{ 
-                font-size: 30px; 
+                font-size: 20px; 
                 font-weight: bold; 
                 color: black; 
             }}
@@ -123,7 +123,7 @@ def create_report_html(round_name, name, score, rank, total_students, wrong_q_nu
             }}
             .feedback-box {{ 
                 border: 1px solid black; 
-                padding: 15px; 
+                padding: 5px 10px; 
                 margin-bottom: 10px;
                 font-size: 13px
                 line_height: 1.4
