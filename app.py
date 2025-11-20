@@ -423,23 +423,38 @@ with tab2:
                 else:
                     st.success("⭕ 만점입니다!")
                 
-                # 피드백 출력 (약식 구현)
+                # --- [수정됨] 피드백 출력 및 성적표용 텍스트 변환 ---
                 w_types = str(last_row['Wrong_Types']).split(" | ") if str(last_row['Wrong_Types']) else []
                 
-                final_html = ""
+                final_html = "" # 성적표에 들어갈 최종 HTML 코드
+                
                 if w_types:
                     st.warning("보완이 필요한 부분")
                     unique_fb = set(get_feedback_message(w) for w in w_types)
+                    
                     for msg in unique_fb:
-                        st.write(msg)
-                        final_html += f"<div>{msg}</div>"
+                        # 1. 화면에 보여주기 (마크다운 그대로 출력)
+                        st.markdown(msg)
+                        st.markdown("---")
+                        
+                        # 2. 성적표용 HTML로 변환 (핵심 수정!)
+                        # ### -> <h3>, ** -> <b>, 줄바꿈 -> <br> 등으로 치환
+                        clean_msg = msg.replace("###", "<h3>").replace("**", "<b>").replace("\n", "<br>")
+                        # 마크다운의 불필요한 기호들 제거
+                        clean_msg = clean_msg.replace(">", "&nbsp;💡").replace("*", "•") 
+                        
+                        final_html += f"<div style='border:1px solid #ddd; padding:15px; margin-bottom:10px;'>{clean_msg}</div>"
                 else:
-                    final_html = "<div>완벽합니다!</div>"
+                    st.success("완벽합니다!")
+                    final_html = "<div style='padding:15px; border:1px solid #ddd;'><h3>🎉 완벽합니다!</h3>틀린 문제가 없어 학습 처방이 없습니다.</div>"
                 
                 # 성적표 다운로드
                 st.write("---")
                 w_nums_list = w_q.split(", ") if w_q != "없음" else []
+                
+                # 변환된 final_html을 함수에 전달
                 report = create_report_html(check_round, last_row['Name'], last_row['Score'], rank, total_std, w_nums_list, w_types, final_html)
+                
                 st.download_button("📥 성적표 다운로드", report, file_name=f"{check_round}_성적표.html", mime="text/html")
 
             else:
