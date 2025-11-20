@@ -536,11 +536,22 @@ with tab1:
                     st.error(f"저장 오류: {e}")
 
 # === [탭 2] 결과 조회 ===
+# === [탭 2] 결과 조회 ===
 with tab2:
     st.header("🔍 성적표 조회")
+    
     c_g, c_r = st.columns(2)
-    chk_grade = c_g.selectbox("학년", list(EXAM_DB.keys()), key="chk_grade")
-    chk_round = c_r.selectbox("회차", list(EXAM_DB[chk_grade].keys()), key="chk_round")
+    
+    # 학년 선택
+    if EXAM_DB:
+        chk_grade = c_g.selectbox("학년", list(EXAM_DB.keys()), key="chk_grade")
+        # 회차 선택 (해당 학년의 것만)
+        chk_rounds = list(EXAM_DB[chk_grade].keys())
+        chk_round = c_r.selectbox("회차", chk_rounds, key="chk_round")
+    else:
+        st.error("문제 데이터(EXAM_DB)가 없습니다.")
+        st.stop()
+    
     chk_id = st.text_input("학번(ID) 입력", key="chk_id")
     
     if st.button("조회하기"):
@@ -550,89 +561,152 @@ with tab2:
                 records = sheet.get_all_records()
                 df = pd.DataFrame(records)
                 
-                # 전처리 및 검색 로직 (0처리 포함)
-                df['Grade'] = df['Grade'].astype(str).str.strip()
-                df['Round'] = df['Round'].astype(str).str.strip()
-                df['ID'] = df['ID'].astype(str)
-                def normalize(val):
-                    try: return str(int(val))
-                    except: return str(val).strip()
-                df['ID_Clean'] = df['ID'].apply(normalize)
-                in_id = normalize(chk_id)
-                
-                my_data = df[
-                    (df['Grade'] == str(chk_grade)) &
-                    (df['Round'] == str(chk_round)) &
-                    (df['ID_Clean'] == in_id)
-                ]
-                
-                if not my_data.empty:
-                    last_row = my_data.iloc[-1]
-                    
-                    # 등수 계산
-                    round_data = df[(df['Grade'] == str(chk_grade)) & (df['Round'] == str(chk_round))]
-                    rank = round_data[round_data['Score'] > last_row['Score']].shape[0] + 1
-                    total = len(round_data)
-                    pct = (rank / total) * 100
-                    
-                    # 화면 출력
-                    st.divider()
-                    st.subheader(f"📢 {chk_grade} {last_row['Name']}님의 결과")
-                    m1, m2, m3 = st.columns(3)
-                    m1.metric("점수", f"{int(last_row['Score'])}")
-                    m2.metric("등수", f"{rank} / {total}")
-                    m3.metric("상위", f"{pct:.1f}%")
-                    
-                    # [핵심] 저장된 틀린 번호를 바탕으로 다시 '유형별 매핑' 복원
-                    # DB에는 "3, 5" 같은 문자열만 있으므로, EXAM_DB를 뒤져서 유형을 다시 찾아내야 함
-                    current_db = EXAM_DB[chk_grade][chk_round]
-                    wrong_map_restored = {}
-                    
-                    w_q_str = str(last_row['Wrong_Questions']) if 'Wrong_Questions' in last_row else ""
-                    
-                    if w_q_str and w_q_str != "없음":
-                        w_nums = [int(x.strip()) for x in w_q_str.split(",") if x.strip().isdigit()]
-                        st.error(f"❌ 틀린 문제: {w_q_str}번")
-                        
-                        # 번호를 가지고 유형 다시 찾기
-                        for q_num in w_nums:
-                            # 혹시 DB 수정으로 문제가 사라졌을 경우 대비
-                            if q_num in current_db:
-                                q_type = current_db[q_num]['type']
-                                if q_type not in wrong_map_restored:
-                                    wrong_map_restored[q_type] = []
-                                wrong_map_restored[q_type].append(q_num)
-                    else:
-                        st.success("⭕ 만점입니다!")
-
-                    # 화면에 피드백 카드 보여주기
-                    if wrong_map_restored:
-                        st.markdown("---")
-                        st.write("### 💡 상세 분석")
-                        for q_type, nums in wrong_map_restored.items():
-                            nums_txt = ", ".join(map(str, nums))
-                            msg = get_feedback_message(q_type)
-                            
-                            # 화면용 마크다운 출력
-                            with st.expander(f"❌ {q_type} (틀린 문제: {nums_txt}번) - 클릭해서 처방 보기", expanded=True):
-                                st.markdown(msg)
-                    elif w_q_str == "없음" or not w_q_str:
-                         st.balloons()
-                         st.info("약점이 없습니다. 완벽합니다!")
-
-                    # 다운로드 버튼
-                    st.write("---")
-                    report = create_report_html(
-                        chk_grade, chk_round, last_row['Name'], last_row['Score'], 
-                        rank, total, wrong_map_restored, get_feedback_message
-                    )
-                    st.download_button("📥 성적표 다운로드", report, file_name="성적표.html", mime="text/html")
-                    
+                if df.empty:
+                    st.warning("저장된 데이터가 없습니다.")
                 else:
-                    st.error("기록이 없습니다.")
+                    # --- 1. 데이터 전처리 (0 포함 검색 해결) ---
+                    df['Grade'] = df['Grade'].astype(str).str.strip()
+                    df['Round'] = df['Round'].astype(str).str.strip()
+                    df['ID'] = df['ID'].astype(str)
+                    
+                    def normalize(val):
+                        try: return str(int(val))
+                        except: return str(val).strip()
+                    
+                    df['ID_Clean'] = df['ID'].apply(normalize)
+                    in_id = normalize(chk_id)
+                    
+                    # --- 2. 데이터 찾기 (학년 + 회차 + ID) ---
+                    my_data = df[
+                        (df['Grade'] == str(chk_grade)) &
+                        (df['Round'] == str(chk_round)) &
+                        (df['ID_Clean'] == in_id)
+                    ]
+                    
+                    if not my_data.empty:
+                        last_row = my_data.iloc[-1]
+                        
+                        # --- 3. 등수 계산 ---
+                        round_data = df[(df['Grade'] == str(chk_grade)) & (df['Round'] == str(chk_round))]
+                        rank = round_data[round_data['Score'] > last_row['Score']].shape[0] + 1
+                        total = len(round_data)
+                        pct = (rank / total) * 100
+                        
+                        # --- 4. 기본 정보 출력 ---
+                        st.divider()
+                        st.subheader(f"📢 {chk_grade} {last_row['Name']}님의 결과")
+                        m1, m2, m3 = st.columns(3)
+                        m1.metric("점수", f"{int(last_row['Score'])}")
+                        m2.metric("등수", f"{rank} / {total}")
+                        m3.metric("상위", f"{pct:.1f}%")
+                        
+                        # --- 5. [핵심 수정] 유형별로 문제 묶기 (Grouping) ---
+                        # 저장된 '틀린 번호(3, 5)' 문자열을 가져옵니다.
+                        w_q_str = str(last_row.get('Wrong_Questions', '')).strip()
+                        
+                        # 복원된 매핑 딕셔너리: {'문법': [3, 5], '독서': [12]}
+                        grouped_wrong = {}
+                        
+                        # 틀린 번호 리스트 만들기
+                        wrong_nums_list = []
+                        if w_q_str and w_q_str != "없음":
+                            wrong_nums_list = [int(x.strip()) for x in w_q_str.split(",") if x.strip().isdigit()]
+                        
+                        # 현재 회차의 정답지(EXAM_DB)를 보고 유형을 역추적
+                        current_target_db = EXAM_DB[chk_grade][chk_round]
+                        
+                        if wrong_nums_list:
+                            st.error(f"❌ **틀린 문제:** {w_q_str}번")
+                            
+                            for q_num in wrong_nums_list:
+                                if q_num in current_target_db:
+                                    q_type = current_target_db[q_num]['type']
+                                    
+                                    if q_type not in grouped_wrong:
+                                        grouped_wrong[q_type] = []
+                                    grouped_wrong[q_type].append(q_num)
+                        else:
+                            st.success("⭕ 만점입니다! 틀린 문제가 없습니다.")
+
+                        # --- 6. 강점 분석 (칭찬) ---
+                        st.info("🌟 **나의 강점**")
+                        found_str = False
+                        # 저장된 오답 유형 문자열 가져오기 (강점 분석용)
+                        saved_w_types = str(last_row.get('Wrong_Types', '')).split(" | ")
+                        
+                        keys_map = {
+                            "문법": ["문법", "음운", "중세"],
+                            "비문학": ["비문학", "철학", "경제", "기술", "과학"],
+                            "문학": ["문학", "시가", "소설"],
+                            "보기": ["보기", "적용"]
+                        }
+                        for label, keywords in keys_map.items():
+                            is_wrong = any(any(k in w for k in keywords) for w in saved_w_types)
+                            has_q = any(any(k in info['type'] for k in keywords) for info in current_target_db.values())
+                            
+                            if has_q and not is_wrong:
+                                st.write(f"- {get_strength_message(label)}")
+                                found_str = True
+                        if not found_str: st.write("- 이번엔 골고루 실수가 있었네요. 다음엔 강점을 만들어봐요!")
+
+                        # --- 7. [핵심 수정] 상세 피드백 출력 (그룹핑된 데이터 사용) ---
+                        # 성적표용 HTML 변수
+                        final_html = ""
+                        
+                        if grouped_wrong:
+                            st.markdown("---")
+                            st.write("### 💡 유형별 오답 분석")
+                            
+                            for q_type, q_nums in grouped_wrong.items():
+                                # 문제 번호 예쁘게 만들기 (예: "3, 5번")
+                                nums_txt = ", ".join(map(str, q_nums))
+                                msg = get_feedback_message(q_type)
+                                
+                                # 화면에 보여주기 (Expander 사용 - 깔끔함!)
+                                with st.expander(f"❌ {q_type} (틀린 문제: {nums_txt}번)", expanded=True):
+                                    st.markdown(msg)
+                                
+                                # --- 성적표 HTML 생성 로직 (화면 출력과 동시에 저장) ---
+                                # 1. 마크다운 제거
+                                clean_msg = msg.strip().replace(">", "💡").replace("**", "").replace("-", "•")
+                                clean_msg = clean_msg.replace("\n", "<br>")
+                                
+                                # 2. 제목(###) 처리
+                                if clean_msg.startswith("###"):
+                                    parts = clean_msg.split("<br>", 1)
+                                    title = parts[0].replace("###", "").strip()
+                                    body = parts[1] if len(parts) > 1 else ""
+                                    clean_msg = f"<div style='font-size:16px; font-weight:bold; border-bottom:1px dashed #ccc; margin-bottom:5px; padding-bottom:3px;'>{title}</div><div>{body}</div>"
+                                
+                                # 3. 카드 HTML에 추가
+                                final_html += f"""
+                                <div class="feedback-card">
+                                    <div class="card-header">
+                                        <span class="card-title">{q_type}</span>
+                                        <span class="card-nums">❌ {nums_txt}번</span>
+                                    </div>
+                                    <div class="card-body">{clean_msg}</div>
+                                </div>
+                                """
+                        elif w_q_str == "없음":
+                             final_html = "<div class='feedback-card'><h3 style='color:green; margin:0;'>🎉 완벽합니다!</h3><p>약점이 없습니다.</p></div>"
+
+                        # --- 8. 다운로드 버튼 ---
+                        st.write("---")
+                        st.write("### 💾 결과 저장")
+                        report = create_report_html(
+                            chk_grade, chk_round, last_row['Name'], last_row['Score'], 
+                            rank, total, grouped_wrong, get_feedback_message
+                        )
+                        st.download_button("📥 성적표 다운로드", report, file_name="성적표.html", mime="text/html")
+                        
+                        with st.expander("📱 모바일 저장 방법"):
+                            st.write("파일 열기 > 공유 > 인쇄 > PDF로 저장")
+
+                    else:
+                        st.error("기록이 없습니다. (학년/회차/ID 확인)")
             except Exception as e:
                 st.error(f"오류: {e}")
-
 
 
 # === [탭 3] 종합 기록부 ===
