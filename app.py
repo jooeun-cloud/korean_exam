@@ -561,7 +561,7 @@ with tab2:
                     report = create_report_html(chk_grade, chk_round, last_row['Name'], last_row['Score'], rank, total, w_nums, w_types, final_html)
                     st.download_button("📥 성적표 다운로드", report, file_name="성적표.html", mime="text/html")
                     with st.expander("📱 모바일 저장 방법"):
-                        st.write("파일 열기 > 공유 > 인쇄 > PDF로 저장")
+                        st.write("크롬에서 파일 열기 > 공유 > 인쇄 > PDF로 저장")
 
                 else:
                     st.error("기록이 없습니다. (학년/회차/ID 확인)")
