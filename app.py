@@ -425,6 +425,7 @@ with tab1:
 
 
 # === [탭 2] 결과 조회 (특정 회차) ===
+# === [탭 2] 결과 조회 (특정 회차) ===
 with tab2:
     st.header("🔍 회차별 결과 조회")
     col_a, col_b = st.columns(2)
@@ -456,7 +457,7 @@ with tab2:
                     total_std = len(round_data)
                     pct = (rank / total_std) * 100
                     
-                    # 화면 출력
+                    # 화면 출력 1: 점수
                     st.divider()
                     st.subheader(f"📢 {last_row['Name']}님의 {check_round} 결과")
                     
@@ -465,24 +466,76 @@ with tab2:
                     m2.metric("등수", f"{rank}등 / {total_std}명")
                     m3.metric("상위", f"{pct:.1f}%")
                     
-                    # 틀린 문제
+                    # 화면 출력 2: 틀린 문제
                     w_q = "없음"
                     if 'Wrong_Questions' in last_row and str(last_row['Wrong_Questions']).strip():
                         w_q = str(last_row['Wrong_Questions'])
                     
+                    st.markdown("---")
                     if w_q != "없음":
                         st.error(f"❌ 틀린 문제: {w_q}번")
                     else:
                         st.success("⭕ 만점입니다! 틀린 문제가 없습니다.")
-                    
-                    # --- [핵심 수정 부분] 피드백 변환 로직 ---
+
+                    # 틀린 유형 가져오기
                     w_types = []
                     if str(last_row['Wrong_Types']).strip():
                         w_types = str(last_row['Wrong_Types']).split(" | ")
+
+                    # --- [복구된 기능] 강점 분석 (칭찬) ---
+                    # 해당 회차의 문제 데이터를 가져와서, 그 유형이 시험에 있었는지 확인
+                    target_exam_data = EXAM_DB.get(check_round, {})
                     
+                    st.info("🌟 **나의 강점 발견!**")
+                    found_any_strength = False
+                    
+                    # (1) 문법 패밀리
+                    grammar_keys = ["문법", "음운", "국어사전", "중세"]
+                    # 내가 틀린 것 중에 문법이 있는가?
+                    is_grammar_wrong = any(any(k in w_type for k in grammar_keys) for w_type in w_types)
+                    # 시험 문제 중에 문법이 있었는가?
+                    has_grammar_q = any(any(k in info['type'] for k in grammar_keys) for info in target_exam_data.values())
+                    
+                    if has_grammar_q and not is_grammar_wrong:
+                        st.write(f"- {get_strength_message('문법')}")
+                        found_any_strength = True
+
+                    # (2) 비문학 패밀리
+                    nonlit_keys = ["비문학", "철학", "경제", "건축", "기술", "과학", "인문", "사회"]
+                    is_nonlit_wrong = any(any(k in w_type for k in nonlit_keys) for w_type in w_types)
+                    has_nonlit_q = any(any(k in info['type'] for k in nonlit_keys) for info in target_exam_data.values())
+                    
+                    if has_nonlit_q and not is_nonlit_wrong:
+                        st.write(f"- {get_strength_message('비문학')}")
+                        found_any_strength = True
+
+                    # (3) 문학 패밀리
+                    lit_keys = ["시가", "작품", "시어", "소설", "각본", "서사"]
+                    is_lit_wrong = any(any(k in w_type for k in lit_keys) for w_type in w_types)
+                    has_lit_q = any(any(k in info['type'] for k in lit_keys) for info in target_exam_data.values())
+                    
+                    if has_lit_q and not is_lit_wrong:
+                        st.write(f"- {get_strength_message('문학')}")
+                        found_any_strength = True
+
+                    # (4) 고난도 패밀리
+                    hard_keys = ["적용", "보기", "준거"]
+                    is_hard_wrong = any(any(k in w_type for k in hard_keys) for w_type in w_types)
+                    has_hard_q = any(any(k in info['type'] for k in hard_keys) for info in target_exam_data.values())
+                    
+                    if has_hard_q and not is_hard_wrong:
+                        st.write(f"- {get_strength_message('보기')}")
+                        found_any_strength = True
+
+                    if not found_any_strength:
+                        st.write("- 이번엔 골고루 실수가 있었네요. 다음엔 꼭 강점을 만들어봐요! 💪")
+
+                    
+                    # --- 화면 출력 3: 피드백 (약점) ---
                     final_html = "" 
                     
                     if w_types:
+                        st.markdown("---")
                         st.warning("💡 보완이 필요한 부분 (상세 피드백)")
                         unique_fb = set(get_feedback_message(w) for w in w_types)
                         
@@ -490,21 +543,18 @@ with tab2:
                             st.markdown(msg)
                             st.markdown("---")
                             
-                            # [수정됨] 1. 마크다운 기호부터 먼저 제거합니다 (태그 깨짐 방지)
-                            clean_msg = msg.replace(">", "💡")  # 인용구 기호 변경
-                            clean_msg = clean_msg.replace("**", "") # 굵은 글씨 기호 제거
-                            clean_msg = clean_msg.replace("-", "•") # 리스트 기호 변경
-                            
-                            # [수정됨] 2. 그 다음에 HTML 태그를 입힙니다
-                            clean_msg = clean_msg.replace("\n", "<br>") # 줄바꿈
-                            clean_msg = clean_msg.replace("###", "<br><b style='font-size:18px; color:#333;'>") # 제목
-                            
+                            # HTML 변환 (성적표용)
+                            clean_msg = msg.replace(">", "💡").replace("**", "").replace("-", "•")
+                            clean_msg = clean_msg.replace("\n", "<br>")
+                            clean_msg = clean_msg.replace("###", "<br><b style='font-size:18px; color:#333;'>")
                             final_html += f"<div class='feedback-box'>{clean_msg}</div>"
                     else:
-                        st.success("완벽합니다! 약점이 없습니다.")
-                        final_html = "<div class='feedback-box'><h3>🎉 완벽합니다!</h3>틀린 문제가 없어 학습 처방이 없습니다.</div>"
+                        # 만점자용 성적표 멘트
+                        st.balloons()
+                        st.success("약점이 없습니다! 완벽합니다.")
+                        final_html = "<div class='feedback-box'><h3>🎉 완벽합니다!</h3>오답이 없어 학습 처방 대신 칭찬을 드립니다.<br>모든 영역에서 뛰어난 성취를 보였습니다.</div>"
                     
-                    # 성적표 다운로드
+                    # --- 화면 출력 4: 다운로드 ---
                     st.write("---")
                     st.write("### 💾 결과 저장")
                     
@@ -533,6 +583,7 @@ with tab2:
             
             except Exception as e:
                 st.error(f"조회 중 오류 발생: {e}")
+
 # === [탭 3] 나의 종합 기록부 (NEW!) ===
 with tab3:
     st.header("📈 종합 학습 분석 (포트폴리오)")
