@@ -387,7 +387,6 @@ with tab2:
     st.header("🔍 회차별 결과 조회")
     col_a, col_b = st.columns(2)
     
-    # 회차 선택 박스 (데이터가 있을 때만)
     if EXAM_DB:
         check_round = col_a.selectbox("확인할 회차", list(EXAM_DB.keys()), key="check_round")
     else:
@@ -403,22 +402,19 @@ with tab2:
                 df = pd.DataFrame(records)
                 df['ID'] = df['ID'].astype(str)
                 
-                # 회차와 ID가 모두 일치하는 데이터 찾기
+                # 데이터 찾기
                 my_data = df[(df['ID'] == check_id) & (df['Round'] == check_round)]
                 
                 if not my_data.empty:
-                    # 같은 회차를 여러번 쳤으면 가장 최신 것만
                     last_row = my_data.iloc[-1]
                     
-                    # 해당 회차 전체 응시자 데이터 (등수 계산용)
+                    # 등수 계산
                     round_data = df[df['Round'] == check_round]
-                    
-                    # 내 점수보다 높은 사람 수 + 1 = 등수
                     rank = round_data[round_data['Score'] > last_row['Score']].shape[0] + 1
                     total_std = len(round_data)
                     pct = (rank / total_std) * 100
                     
-                    # --- [화면 출력 1] 점수 및 등수 ---
+                    # 화면 출력
                     st.divider()
                     st.subheader(f"📢 {last_row['Name']}님의 {check_round} 결과")
                     
@@ -427,8 +423,7 @@ with tab2:
                     m2.metric("등수", f"{rank}등 / {total_std}명")
                     m3.metric("상위", f"{pct:.1f}%")
                     
-                    # --- [화면 출력 2] 틀린 문제 번호 ---
-                    # Wrong_Questions 컬럼이 없거나 비어있을 경우 대비
+                    # 틀린 문제
                     w_q = "없음"
                     if 'Wrong_Questions' in last_row and str(last_row['Wrong_Questions']).strip():
                         w_q = str(last_row['Wrong_Questions'])
@@ -438,46 +433,41 @@ with tab2:
                     else:
                         st.success("⭕ 만점입니다! 틀린 문제가 없습니다.")
                     
-                    # --- [화면 출력 3] 피드백 및 성적표 생성 ---
-                    # 저장된 틀린 유형 가져오기
+                    # --- [핵심 수정 부분] 피드백 변환 로직 ---
                     w_types = []
                     if str(last_row['Wrong_Types']).strip():
                         w_types = str(last_row['Wrong_Types']).split(" | ")
                     
-                    final_html = "" # 성적표에 들어갈 HTML 저장 변수
+                    final_html = "" 
                     
                     if w_types:
                         st.warning("💡 보완이 필요한 부분 (상세 피드백)")
                         unique_fb = set(get_feedback_message(w) for w in w_types)
                         
                         for msg in unique_fb:
-                            # 1. 화면에는 마크다운으로 예쁘게 보여줌 (이게 있어야 글이 나옵니다!)
                             st.markdown(msg)
                             st.markdown("---")
                             
-                            # 2. 성적표용 HTML 변환 (특수문자 제거)
-                            # (1) 줄바꿈 처리
-                            clean_msg = msg.replace("\n", "<br>")
-                            # (2) ### 제목 -> 굵은 글씨로
-                            clean_msg = clean_msg.replace("###", "<br><b style='font-size:18px; color:#333;'>")
-                            # (3) **강조** -> 굵은 글씨 태그로 변환 (간단히 ** 제거하거나 <b>로 변경)
-                            clean_msg = clean_msg.replace("**", "") 
-                            # (4) 기타 마크다운 기호 제거
-                            clean_msg = clean_msg.replace(">", "💡").replace("-", "•")
+                            # [수정됨] 1. 마크다운 기호부터 먼저 제거합니다 (태그 깨짐 방지)
+                            clean_msg = msg.replace(">", "💡")  # 인용구 기호 변경
+                            clean_msg = clean_msg.replace("**", "") # 굵은 글씨 기호 제거
+                            clean_msg = clean_msg.replace("-", "•") # 리스트 기호 변경
                             
-                            # HTML에 추가
+                            # [수정됨] 2. 그 다음에 HTML 태그를 입힙니다
+                            clean_msg = clean_msg.replace("\n", "<br>") # 줄바꿈
+                            clean_msg = clean_msg.replace("###", "<br><b style='font-size:18px; color:#333;'>") # 제목
+                            
                             final_html += f"<div class='feedback-box'>{clean_msg}</div>"
                     else:
                         st.success("완벽합니다! 약점이 없습니다.")
                         final_html = "<div class='feedback-box'><h3>🎉 완벽합니다!</h3>틀린 문제가 없어 학습 처방이 없습니다.</div>"
                     
-                    # --- [화면 출력 4] 성적표 다운로드 버튼 ---
+                    # 성적표 다운로드
                     st.write("---")
                     st.write("### 💾 결과 저장")
                     
                     w_nums_list = w_q.split(", ") if w_q != "없음" else []
                     
-                    # 성적표 생성 함수 호출
                     report = create_report_html(
                         check_round, 
                         last_row['Name'], 
@@ -497,7 +487,7 @@ with tab2:
                     )
 
                 else:
-                    st.error("해당 회차의 응시 기록이 없습니다. 학번과 회차를 다시 확인해주세요.")
+                    st.error("해당 회차의 응시 기록이 없습니다.")
             
             except Exception as e:
                 st.error(f"조회 중 오류 발생: {e}")
