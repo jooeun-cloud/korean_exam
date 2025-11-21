@@ -687,7 +687,7 @@ with tab2:
                 render_res(g)
 
 # === [탭 3] 종합 기록부 (관리자 전용 + 포트폴리오 다운로드) ===
-# === [탭 3] 종합 기록부 (관리자 전용 + 에러 수정 완료) ===
+# === [탭 3] 종합 기록부 (관리자 전용 + 똑똑한 피드백 추천) ===
 with tab3:
     st.header("📈 포트폴리오")
     
@@ -704,6 +704,7 @@ with tab3:
                 try:
                     records = sheet.get_all_records()
                     df = pd.DataFrame(records)
+                    
                     # 전처리
                     df['Grade'] = df['Grade'].astype(str).str.strip()
                     df['ID'] = df['ID'].astype(str)
@@ -718,69 +719,87 @@ with tab3:
                     if not my_hist.empty:
                         sname = my_hist.iloc[-1]['Name']
                         
-                        # 통계 계산
+                        # 통계
                         total_count = len(my_hist)
                         avg_score = my_hist['Score'].mean()
                         max_score = my_hist['Score'].max()
 
                         st.success(f"**{pg} {sname}**님의 성장 기록")
                         
-                        # 요약 정보
                         m1, m2, m3 = st.columns(3)
                         m1.metric("총 응시", f"{total_count}회")
                         m2.metric("평균 점수", f"{avg_score:.1f}점")
                         m3.metric("최고 점수", f"{int(max_score)}점")
 
-                        # 그래프
                         chart = alt.Chart(my_hist).mark_line(point=True).encode(
                             x='Round', y=alt.Y('Score', scale=alt.Scale(domain=[0, 100]))
                         )
                         st.altair_chart(chart, use_container_width=True)
                         
-                        # --- [수정됨] 취약점 TOP 3 분석 ---
+                        # --- [핵심 수정] AI 추천 피드백 (중복 제외 TOP 3) ---
                         st.markdown("---")
-                        st.write("### 2️⃣ 누적 취약점 분석 (TOP 3)")
+                        st.write("### 2️⃣ 누적 취약점 분석 및 처방")
                         
                         all_w = []
                         for i, r in my_hist.iterrows():
                             if str(r['Wrong_Types']).strip():
                                 all_w.extend(str(r['Wrong_Types']).split(" | "))
                         
-                        weakness_report_data = [] # 리포트용 데이터
+                        weakness_report_data = [] 
                         
                         if all_w:
                             from collections import Counter
-                            cnt = Counter(all_w).most_common()
+                            counts = Counter(all_w)
+                            sorted_counts = counts.most_common() # 전체 순위 리스트
+                            
+                            # -------------------------------------------------------
+                            # [로직 변경] 중복되지 않는 '새로운 피드백' 3개를 찾을 때까지 탐색
+                            # -------------------------------------------------------
+                            unique_recommendations = [] # 최종 선발된 (유형, 횟수, 메시지) 리스트
+                            seen_messages = set()       # 이미 등록된 메시지 내용 저장소
+                            
+                            for w_type, count in sorted_counts:
+                                # 피드백 내용 가져오기
+                                msgs = get_feedback_message_list(w_type)
+                                full_msg = "\n\n---\n\n".join(msgs)
+                                
+                                # 이 피드백 내용이 처음 보는 것인가?
+                                if full_msg not in seen_messages:
+                                    unique_recommendations.append((w_type, count, full_msg))
+                                    seen_messages.add(full_msg)
+                                
+                                # 3개를 찾았으면 그만 찾기
+                                if len(unique_recommendations) >= 3:
+                                    break
+                            
+                            # -------------------------------------------------------
                             
                             c_l, c_r = st.columns([1, 1.5])
                             
                             with c_l:
-                                st.write("📉 **많이 틀린 유형**")
-                                for i, (t, c) in enumerate(cnt[:3]):
-                                    st.write(f"{i+1}위: **{t}** ({c}회)")
+                                st.write("📉 **많이 틀린 유형 TOP 3 (통계)**")
+                                # 왼쪽은 통계적 사실대로 상위 3개를 보여줍니다.
+                                for i, (w_type, count) in enumerate(sorted_counts[:3]):
+                                    st.write(f"{i+1}위: **{w_type}** ({count}회)")
                             
                             with c_r:
-                                st.info("💡 **맞춤 처방**")
-                                for i, (t, c) in enumerate(cnt[:3]):
-                                    # [핵심 수정] 함수 이름 변경 (_list) 및 리스트 처리
-                                    msgs = get_feedback_message_list(t)
+                                st.info("💡 **AI 맞춤 처방전 (우선순위 3선)**")
+                                st.caption("※ 중복된 조언은 제외하고, 필요한 학습법 순서대로 보여줍니다.")
+                                
+                                for i, (w_type, count, msg) in enumerate(unique_recommendations):
+                                    # 화면 출력
+                                    with st.expander(f"{i+1}순위: {w_type} 해결법", expanded=(i==0)):
+                                        st.markdown(msg)
                                     
-                                    # 리스트에 있는 피드백들을 줄바꿈으로 합침
-                                    full_msg = "\n\n---\n\n".join(msgs)
-                                    
-                                    with st.expander(f"{t} 처방전", expanded=(i==0)):
-                                        st.markdown(full_msg)
-                                    
-                                    # 리포트용 HTML 변환
-                                    clean_msg = full_msg.strip().replace(">", "💡").replace("**", "").replace("-", "•").replace("\n", "<br>")
-                                    # 제목 처리 (첫 번째 제목만 크게)
+                                    # 리포트용 데이터 저장
+                                    clean_msg = msg.strip().replace(">", "💡").replace("**", "").replace("-", "•").replace("\n", "<br>")
                                     if clean_msg.startswith("###"):
                                         parts = clean_msg.split("<br>", 1)
                                         title = parts[0].replace("###", "").strip()
                                         body = parts[1] if len(parts) > 1 else ""
                                         clean_msg = f"<div style='font-weight:bold; margin-bottom:5px; color:#000;'>{title}</div><div>{body}</div>"
                                     
-                                    weakness_report_data.append((t, c, clean_msg))
+                                    weakness_report_data.append((w_type, count, clean_msg))
                         else:
                             st.success("발견된 약점이 없습니다.")
 
@@ -789,7 +808,7 @@ with tab3:
                         st.markdown("### 3️⃣ 응시 기록 상세")
                         st.dataframe(my_hist[['Round', 'Score', 'Wrong_Types']])
                         
-                        # 포트폴리오 다운로드
+                        # 다운로드
                         if 'create_portfolio_html' in globals():
                             p_html = create_portfolio_html(
                                 pg, sname, total_count, avg_score, max_score, 
