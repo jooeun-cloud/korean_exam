@@ -722,13 +722,11 @@ with tab2:
                                     st.error("해당 학생의 기록이 없습니다.")
                         except Exception as e:
                             st.error(f"오류 발생: {e}")
+                            
         for i, grade in enumerate(active_grades):
             with result_tabs[i]:
                 render_result_page(grade)
-        # 반복문으로 탭 생성
-        for i, grade in enumerate(active_grades):
-            with result_tabs[i]:
-                render_result_page(grade)
+
 
 
 # === [탭 3] 종합 기록부 (관리자 전용 + 포트폴리오 다운로드) ===
