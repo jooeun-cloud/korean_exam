@@ -687,128 +687,116 @@ with tab2:
                 render_res(g)
 
 # === [탭 3] 종합 기록부 (관리자 전용 + 포트폴리오 다운로드) ===
+# === [탭 3] 종합 기록부 (관리자 전용 + 에러 수정 완료) ===
 with tab3:
     st.header("📈 포트폴리오")
     
     if not is_admin:
         st.error("⛔ **접근 권한이 없습니다.**")
-        st.info("종합 기록부는 선생님만 열람할 수 있습니다.")
-        st.stop()
+    else:
+        c1, c2 = st.columns(2)
+        pg = c1.selectbox("학년", active_grades, key="pg")
+        pid = c2.text_input("학번(ID)", key="pid")
+        
+        if st.button("분석 보기", key="btn_port"):
+            sheet = get_google_sheet_data()
+            if sheet:
+                try:
+                    records = sheet.get_all_records()
+                    df = pd.DataFrame(records)
+                    # 전처리
+                    df['Grade'] = df['Grade'].astype(str).str.strip()
+                    df['ID'] = df['ID'].astype(str)
+                    def norm(v):
+                        try: return str(int(v))
+                        except: return str(v).strip()
+                    df['ID_Clean'] = df['ID'].apply(norm)
+                    in_id = norm(pid)
+                    
+                    my_hist = df[(df['Grade']==str(pg)) & (df['ID_Clean']==in_id)]
+                    
+                    if not my_hist.empty:
+                        sname = my_hist.iloc[-1]['Name']
+                        
+                        # 통계 계산
+                        total_count = len(my_hist)
+                        avg_score = my_hist['Score'].mean()
+                        max_score = my_hist['Score'].max()
 
-    active_grades = [g for g in GRADE_ORDER if g in EXAM_DB]
-    
-    c1, c2 = st.columns(2)
-    pg = c1.selectbox("학년", active_grades, key="pg")
-    pid = c2.text_input("학번(ID)", key="pid")
-    
-    if st.button("분석 보기"):
-        sheet = get_google_sheet_data()
-        if sheet:
-            try:
-                records = sheet.get_all_records()
-                df = pd.DataFrame(records)
-                
-                # 전처리
-                df['Grade'] = df['Grade'].astype(str).str.strip()
-                df['ID'] = df['ID'].astype(str)
-                def normalize(val):
-                    try: return str(int(val))
-                    except: return str(val).strip()
-                df['ID_Clean'] = df['ID'].apply(normalize)
-                in_id = normalize(pid)
-                
-                my_hist = df[(df['Grade']==str(pg)) & (df['ID_Clean']==in_id)]
-                
-                if not my_hist.empty:
-                    student_name = my_hist.iloc[-1]['Name']
-                    st.success(f"**{pg} {student_name}**님의 성장 기록입니다.")
-                    
-                    avg_score = my_hist['Score'].mean()
-                    max_score = my_hist['Score'].max()
-                    total_count = len(my_hist)
-                    
-                    m1, m2, m3 = st.columns(3)
-                    m1.metric("총 응시", f"{total_count}회")
-                    m2.metric("평균 점수", f"{avg_score:.1f}점")
-                    m3.metric("최고 점수", f"{int(max_score)}점")
-                    
-                    st.markdown("### 1️⃣ 성적 변화 추이")
-                    chart = alt.Chart(my_hist).mark_line(point=True).encode(
-                        x=alt.X('Round', sort=None, title='시험 회차'),
-                        y=alt.Y('Score', scale=alt.Scale(domain=[0, 100]), title='점수'),
-                        tooltip=['Round', 'Score']
-                    ).properties(height=300)
-                    st.altair_chart(chart, use_container_width=True)
-                    
-                    # --- 누적 약점 분석 ---
-                    st.markdown("---")
-                    st.markdown("### 2️⃣ 누적 취약점 분석 (TOP 3)")
-                    
-                    all_wrong_types = []
-                    for idx, row in my_hist.iterrows():
-                        if str(row['Wrong_Types']).strip():
-                            types = str(row['Wrong_Types']).split(" | ")
-                            all_wrong_types.extend(types)
-                    
-                    weakness_report_data = [] # 리포트 생성용 데이터 저장 리스트
-                    
-                    if all_wrong_types:
-                        from collections import Counter
-                        counts = Counter(all_wrong_types)
-                        sorted_counts = counts.most_common()
+                        st.success(f"**{pg} {sname}**님의 성장 기록")
                         
-                        col_list, col_feedback = st.columns([1, 1.5])
+                        # 요약 정보
+                        m1, m2, m3 = st.columns(3)
+                        m1.metric("총 응시", f"{total_count}회")
+                        m2.metric("평균 점수", f"{avg_score:.1f}점")
+                        m3.metric("최고 점수", f"{int(max_score)}점")
+
+                        # 그래프
+                        chart = alt.Chart(my_hist).mark_line(point=True).encode(
+                            x='Round', y=alt.Y('Score', scale=alt.Scale(domain=[0, 100]))
+                        )
+                        st.altair_chart(chart, use_container_width=True)
                         
-                        with col_list:
-                            st.write("📉 **많이 틀린 유형**")
-                            for i, (w_type, count) in enumerate(sorted_counts[:3]):
-                                icon = ["🥇", "🥈", "🥉"][i]
-                                st.write(f"{icon} **{w_type}** ({count}회)")
+                        # --- [수정됨] 취약점 TOP 3 분석 ---
+                        st.markdown("---")
+                        st.write("### 2️⃣ 누적 취약점 분석 (TOP 3)")
                         
-                        with col_feedback:
-                            st.info("💡 **맞춤 처방전**")
-                            for i, (w_type, count) in enumerate(sorted_counts[:3]):
-                                raw_msg = get_feedback_message(w_type)
-                                
-                                # 화면 출력
-                                with st.expander(f"클릭: {w_type} 처방", expanded=(i==0)):
-                                    st.markdown(raw_msg)
-                                
-                                # [리포트용 데이터 준비] 마크다운 -> HTML 변환
-                                clean_msg = raw_msg.strip().replace(">", "💡").replace("**", "").replace("-", "•").replace("\n", "<br>")
-                                if clean_msg.startswith("###"):
-                                    parts = clean_msg.split("<br>", 1)
-                                    title = parts[0].replace("###", "").strip()
-                                    body = parts[1] if len(parts) > 1 else ""
-                                    clean_msg = f"<div style='font-weight:bold; margin-bottom:5px;'>{title}</div><div>{body}</div>"
-                                
-                                weakness_report_data.append((w_type, count, clean_msg))
+                        all_w = []
+                        for i, r in my_hist.iterrows():
+                            if str(r['Wrong_Types']).strip():
+                                all_w.extend(str(r['Wrong_Types']).split(" | "))
+                        
+                        weakness_report_data = [] # 리포트용 데이터
+                        
+                        if all_w:
+                            from collections import Counter
+                            cnt = Counter(all_w).most_common()
+                            
+                            c_l, c_r = st.columns([1, 1.5])
+                            
+                            with c_l:
+                                st.write("📉 **많이 틀린 유형**")
+                                for i, (t, c) in enumerate(cnt[:3]):
+                                    st.write(f"{i+1}위: **{t}** ({c}회)")
+                            
+                            with c_r:
+                                st.info("💡 **맞춤 처방**")
+                                for i, (t, c) in enumerate(cnt[:3]):
+                                    # [핵심 수정] 함수 이름 변경 (_list) 및 리스트 처리
+                                    msgs = get_feedback_message_list(t)
+                                    
+                                    # 리스트에 있는 피드백들을 줄바꿈으로 합침
+                                    full_msg = "\n\n---\n\n".join(msgs)
+                                    
+                                    with st.expander(f"{t} 처방전", expanded=(i==0)):
+                                        st.markdown(full_msg)
+                                    
+                                    # 리포트용 HTML 변환
+                                    clean_msg = full_msg.strip().replace(">", "💡").replace("**", "").replace("-", "•").replace("\n", "<br>")
+                                    # 제목 처리 (첫 번째 제목만 크게)
+                                    if clean_msg.startswith("###"):
+                                        parts = clean_msg.split("<br>", 1)
+                                        title = parts[0].replace("###", "").strip()
+                                        body = parts[1] if len(parts) > 1 else ""
+                                        clean_msg = f"<div style='font-weight:bold; margin-bottom:5px; color:#000;'>{title}</div><div>{body}</div>"
+                                    
+                                    weakness_report_data.append((t, c, clean_msg))
+                        else:
+                            st.success("발견된 약점이 없습니다.")
+
+                        # 상세 기록
+                        st.markdown("---")
+                        st.markdown("### 3️⃣ 응시 기록 상세")
+                        st.dataframe(my_hist[['Round', 'Score', 'Wrong_Types']])
+                        
+                        # 포트폴리오 다운로드
+                        if 'create_portfolio_html' in globals():
+                            p_html = create_portfolio_html(
+                                pg, sname, total_count, avg_score, max_score, 
+                                weakness_report_data, my_hist
+                            )
+                            st.download_button("📥 포트폴리오 다운로드", p_html, file_name=f"{sname}_portfolio.html", mime="text/html")
+                        
                     else:
-                        st.success("약점이 없습니다.")
-
-                    # --- 상세 기록 및 다운로드 ---
-                    st.markdown("---")
-                    st.markdown("### 3️⃣ 응시 기록 및 저장")
-                    
-                    history_view = my_hist[['Round', 'Score', 'Timestamp', 'Wrong_Types']].copy()
-                    history_view.columns = ['회차', '점수', '응시일시', '틀린 유형']
-                    st.dataframe(history_view)
-                    
-                    # [NEW] 포트폴리오 다운로드 버튼
-                    portfolio_html = create_portfolio_html(
-                        pg, student_name, total_count, avg_score, max_score, 
-                        weakness_report_data, my_hist
-                    )
-                    
-                    st.download_button(
-                        label="📥 종합 포트폴리오 다운로드 (PDF 저장용)",
-                        data=portfolio_html,
-                        file_name=f"{student_name}_종합분석보고서.html",
-                        mime="text/html"
-                    )
-                    with st.expander("📱 모바일 저장 방법"):
-                        st.write("파일 열기 > 공유 > 인쇄 > PDF로 저장")
-                    
-                else:
-                    st.warning("응시 기록이 없습니다.")
-            except Exception as e: st.error(f"오류: {e}")
+                        st.warning("기록이 없습니다.")
+                except Exception as e: st.error(f"오류: {e}")
