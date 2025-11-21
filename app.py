@@ -173,15 +173,35 @@ def render_exam_page(grade):
         st.markdown("---")
         
         user_answers = {}
-        cols = st.columns(4)
-        for i, q_num in enumerate(sorted(current_exam_data.keys())):
-            with cols[i % 4]:
-                info = current_exam_data[q_num]
-                user_answers[q_num] = st.number_input(
-                    f"{q_num}번 ({info['score']}점)", 
-                    min_value=1, max_value=5, step=1, key=f"q_{grade}_{selected_round}_{q_num}"
-                )
         
+        # [수정됨] OMR 스타일 입력을 위해 레이아웃 변경
+        # 라디오 버튼은 공간을 좀 차지하므로, 한 줄에 2문제씩 배치하는 게 가장 보기 좋습니다.
+        # (모바일에서는 자동으로 세로로 보입니다)
+        cols = st.columns(2) 
+        
+        for i, q_num in enumerate(sorted(current_exam_data.keys())):
+            col_idx = i % 2
+            info = current_exam_data[q_num]
+            
+            with cols[col_idx]:
+                # 문제 번호와 배점을 굵게 표시
+                st.markdown(f"**{q_num}번** <small>({info['score']}점)</small>", unsafe_allow_html=True)
+                
+                # st.radio로 OMR 선택지 구현 (1~5번)
+                # horizontal=True: 가로로 배치
+                # index=None: 기본 선택 안 함 (학생이 직접 골라야 함)
+                user_answers[q_num] = st.radio(
+                    label=f"{q_num}번 답안 선택", # 시각적으로는 숨기고 위 markdown으로 대체
+                    options=[1, 2, 3, 4, 5],
+                    horizontal=True,
+                    label_visibility="collapsed", # 라벨 숨김 (깔끔하게)
+                    index=None, # 처음엔 선택 안 된 상태
+                    key=f"q_{grade}_{selected_round}_{q_num}"
+                )
+                
+                st.write("") # 문제 사이 간격 살짝 띄우기
+        
+        st.markdown("---")
         submit = st.form_submit_button("답안 제출하기", use_container_width=True)
         
     if submit:
