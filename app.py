@@ -6,8 +6,18 @@ from oauth2client.service_account import ServiceAccountCredentials
 import altair as alt
 
 # --- [1] 문제 데이터베이스 ---
+# --- [1] 문제 데이터베이스 ---
 EXAM_DB = {
-    "1학년": {
+    "중 1학년": {
+        "1회차": { 1: {"ans": 1, "score": 100, "type": "테스트"} } 
+    },
+    "중 2학년": {
+        "1회차": { 1: {"ans": 1, "score": 100, "type": "테스트"} }
+    },
+    "중 3학년": {
+        "1회차": { 1: {"ans": 1, "score": 100, "type": "테스트"} }
+    },
+    "고 1학년": {
         "1회차": {
             1: {"ans": 2, "score": 3, "type": "화법 (말하기 전략)"},
             2: {"ans": 4, "score": 3, "type": "화법 (자료 활용)"},
@@ -40,20 +50,13 @@ EXAM_DB = {
             29: {"ans": 3, "score": 3, "type": "문학 (소설/구조)"},
             30: {"ans": 4, "score": 3, "type": "문학 (소설/심리)"},
             31: {"ans": 1, "score": 3, "type": "어휘 (한자성어)"},
-        },
-        "2회차": {
-             1: {"ans": 1, "score": 100, "type": "테스트"},
         }
     },
-    "2학년": {
-        "1회차": {
-             1: {"ans": 1, "score": 100, "type": "테스트"},
-        }
+    "고 2학년": {
+        "1회차": { 1: {"ans": 1, "score": 100, "type": "테스트"} }
     },
-    "3학년": {
-        "1회차": {
-             1: {"ans": 1, "score": 100, "type": "테스트"},
-        }
+    "고 3학년": {
+        "1회차": { 1: {"ans": 1, "score": 100, "type": "테스트"} }
     }
 }
 
@@ -259,111 +262,136 @@ st.title("📚 국어 모의고사 통합 관리 시스템")
 
 tab1, tab2, tab3 = st.tabs(["📝 시험 응시하기", "🔍 결과 조회", "📈 종합 기록부"])
 
-# === [탭 1] 학년별 탭 생성 ===
+# 우리가 만들고 싶은 학년 목록 (순서대로)
+GRADE_ORDER = ["중 1학년", "중 2학년", "중 3학년", "고 1학년", "고 2학년", "고 3학년"]
+
+# === [탭 1] 시험 응시 (자동 탭 생성) ===
 with tab1:
     st.header("학년을 선택하세요")
-    # 여기서 학년 탭을 만듭니다!
-    g_tabs = st.tabs(["1학년", "2학년", "3학년"])
     
-    with g_tabs[0]: render_exam_page("1학년")
-    with g_tabs[1]: render_exam_page("2학년")
-    with g_tabs[2]: render_exam_page("3학년")
+    # 1. EXAM_DB에 있는 학년만 추려서 탭을 만듭니다.
+    # (데이터가 없는 학년은 탭을 안 만들기 위함, 혹은 순서 강제)
+    active_grades = [g for g in GRADE_ORDER if g in EXAM_DB]
+    
+    if not active_grades:
+        st.error("등록된 문제 데이터(EXAM_DB)가 없습니다.")
+    else:
+        # 2. 학년 수만큼 탭 생성
+        exam_tabs = st.tabs(active_grades)
+        
+        # 3. 반복문으로 각 탭에 시험지 넣기
+        for i, grade in enumerate(active_grades):
+            with exam_tabs[i]:
+                render_exam_page(grade)
 
 
-# === [탭 2] 결과 조회 (학년 탭 적용) ===
+# === [탭 2] 결과 조회 (자동 탭 생성) ===
 with tab2:
     st.header("🔍 성적표 조회")
     
-    # 조회도 학년별로 탭을 나누면 깔끔합니다
-    res_tabs = st.tabs(["1학년 결과", "2학년 결과", "3학년 결과"])
+    active_grades = [g for g in GRADE_ORDER if g in EXAM_DB]
     
-    # 조회 로직 함수화
-    def render_result_page(grade):
-        if grade not in EXAM_DB: return
-        rounds = list(EXAM_DB[grade].keys())
+    if not active_grades:
+        st.warning("데이터가 없습니다.")
+    else:
+        result_tabs = st.tabs(active_grades)
         
-        c1, c2 = st.columns(2)
-        chk_round = c1.selectbox("회차", rounds, key=f"res_round_{grade}")
-        chk_id = c2.text_input("학번(ID)", key=f"res_id_{grade}")
-        
-        if st.button("조회하기", key=f"btn_res_{grade}"):
-            sheet = get_google_sheet_data()
-            if sheet:
-                try:
-                    records = sheet.get_all_records()
-                    df = pd.DataFrame(records)
-                    # 전처리
-                    df['Grade'] = df['Grade'].astype(str).str.strip()
-                    df['Round'] = df['Round'].astype(str).str.strip()
-                    df['ID'] = df['ID'].astype(str)
-                    def normalize(val):
-                        try: return str(int(val))
-                        except: return str(val).strip()
-                    df['ID_Clean'] = df['ID'].apply(normalize)
-                    in_id = normalize(chk_id)
-                    
-                    my_data = df[(df['Grade']==str(grade)) & (df['Round']==str(chk_round)) & (df['ID_Clean']==in_id)]
-                    
-                    if not my_data.empty:
-                        last_row = my_data.iloc[-1]
+        # 조회 로직 함수 (기존과 동일, 위치만 내부로 이동)
+        def render_result_page(grade):
+            if grade not in EXAM_DB: return
+            rounds = list(EXAM_DB[grade].keys())
+            
+            c1, c2 = st.columns(2)
+            chk_round = c1.selectbox("회차", rounds, key=f"res_round_{grade}")
+            chk_id = c2.text_input("학번(ID)", key=f"res_id_{grade}")
+            
+            if st.button("조회하기", key=f"btn_res_{grade}"):
+                sheet = get_google_sheet_data()
+                if sheet:
+                    try:
+                        records = sheet.get_all_records()
+                        df = pd.DataFrame(records)
                         
-                        # 등수
-                        round_data = df[(df['Grade']==str(grade)) & (df['Round']==str(chk_round))]
-                        rank = round_data[round_data['Score'] > last_row['Score']].shape[0] + 1
-                        total = len(round_data)
-                        pct = (rank / total) * 100
+                        # 전처리 (0문제 해결 포함)
+                        df['Grade'] = df['Grade'].astype(str).str.strip()
+                        df['Round'] = df['Round'].astype(str).str.strip()
+                        df['ID'] = df['ID'].astype(str)
                         
-                        st.divider()
-                        st.subheader(f"📢 {grade} {last_row['Name']}님의 결과")
-                        m1, m2, m3 = st.columns(3)
-                        m1.metric("점수", f"{int(last_row['Score'])}")
-                        m2.metric("등수", f"{rank} / {total}")
-                        m3.metric("상위", f"{pct:.1f}%")
+                        def normalize(val):
+                            try: return str(int(val))
+                            except: return str(val).strip()
                         
-                        # 데이터 복원
-                        w_q_str = str(last_row.get('Wrong_Questions', ''))
-                        w_nums = [int(x.strip()) for x in w_q_str.split(",") if x.strip().isdigit()] if w_q_str != "없음" else []
+                        df['ID_Clean'] = df['ID'].apply(normalize)
+                        in_id = normalize(chk_id)
                         
-                        # 유형별 매핑 복원
-                        current_db = EXAM_DB[grade][chk_round]
-                        wrong_map = {}
-                        for q in w_nums:
-                            if q in current_db:
-                                qt = current_db[q]['type']
-                                if qt not in wrong_map: wrong_map[qt] = []
-                                wrong_map[qt].append(q)
+                        # 검색
+                        my_data = df[(df['Grade']==str(grade)) & (df['Round']==str(chk_round)) & (df['ID_Clean']==in_id)]
                         
-                        # 화면 출력
-                        if wrong_map:
-                            st.markdown("---")
-                            for qt, nums in wrong_map.items():
-                                nums_txt = ", ".join(map(str, nums))
-                                with st.expander(f"❌ {qt} (틀린 문제: {nums_txt}번)", expanded=True):
-                                    st.markdown(get_feedback_message(qt))
+                        if not my_data.empty:
+                            last_row = my_data.iloc[-1]
+                            
+                            # 등수
+                            round_data = df[(df['Grade']==str(grade)) & (df['Round']==str(chk_round))]
+                            rank = round_data[round_data['Score'] > last_row['Score']].shape[0] + 1
+                            total = len(round_data)
+                            pct = (rank / total) * 100
+                            
+                            st.divider()
+                            st.subheader(f"📢 {grade} {last_row['Name']}님의 결과")
+                            m1, m2, m3 = st.columns(3)
+                            m1.metric("점수", f"{int(last_row['Score'])}")
+                            m2.metric("등수", f"{rank} / {total}")
+                            m3.metric("상위", f"{pct:.1f}%")
+                            
+                            # 틀린 문제 복원
+                            w_q_str = str(last_row.get('Wrong_Questions', ''))
+                            w_nums = [int(x.strip()) for x in w_q_str.split(",") if x.strip().isdigit()] if w_q_str != "없음" else []
+                            
+                            # 유형 매핑 복원
+                            current_db = EXAM_DB[grade][chk_round]
+                            wrong_map = {}
+                            for q in w_nums:
+                                if q in current_db:
+                                    qt = current_db[q]['type']
+                                    if qt not in wrong_map: wrong_map[qt] = []
+                                    wrong_map[qt].append(q)
+                            
+                            # 화면 출력
+                            if wrong_map:
+                                st.markdown("---")
+                                for qt, nums in wrong_map.items():
+                                    nums_txt = ", ".join(map(str, nums))
+                                    with st.expander(f"❌ {qt} (틀린 문제: {nums_txt}번)", expanded=True):
+                                        st.markdown(get_feedback_message(qt))
+                            else:
+                                st.balloons()
+                                st.success("만점입니다! 약점이 없습니다.")
+
+                            # 다운로드
+                            st.write("---")
+                            report = create_report_html(grade, chk_round, last_row['Name'], last_row['Score'], rank, total, wrong_map, get_feedback_message)
+                            st.download_button("📥 성적표 다운로드", report, file_name="성적표.html", mime="text/html", key=f"res_dn_{grade}")
+                            with st.expander("📱 모바일 저장 방법"):
+                                st.write("파일 열기 > 공유 > 인쇄 > PDF로 저장")
+                        
                         else:
-                            st.balloons()
-                            st.success("만점입니다! 약점이 없습니다.")
+                            st.error("기록이 없습니다.")
+                    except Exception as e: st.error(f"오류: {e}")
 
-                        # 다운로드
-                        st.write("---")
-                        report = create_report_html(grade, chk_round, last_row['Name'], last_row['Score'], rank, total, wrong_map, get_feedback_message)
-                        st.download_button("📥 성적표 다운로드", report, file_name="성적표.html", mime="text/html", key=f"res_dn_{grade}")
-                    
-                    else:
-                        st.error("기록이 없습니다.")
-                except Exception as e: st.error(f"오류: {e}")
-
-    with res_tabs[0]: render_result_page("1학년")
-    with res_tabs[1]: render_result_page("2학년")
-    with res_tabs[2]: render_result_page("3학년")
+        # 반복문으로 결과 조회 탭 생성
+        for i, grade in enumerate(active_grades):
+            with result_tabs[i]:
+                render_result_page(grade)
 
 
 # === [탭 3] 종합 기록부 ===
 with tab3:
     st.header("📈 포트폴리오")
-    # 여기도 탭으로 나누면 좋겠지만, 한번에 검색하는 게 더 편할 수도 있어서 학년 선택 박스 유지
-    # (물론 원하시면 여기도 탭으로 바꿀 수 있습니다)
-    pg = st.selectbox("학년", list(EXAM_DB.keys()), key="pg")
+    
+    # 여기도 GRADE_ORDER 순서대로 보여주면 깔끔합니다.
+    active_grades = [g for g in GRADE_ORDER if g in EXAM_DB]
+    
+    pg = st.selectbox("학년", active_grades, key="pg")
     pid = st.text_input("학번(ID)", key="pid")
     
     if st.button("분석 보기"):
