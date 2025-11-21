@@ -5,7 +5,7 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import altair as alt
 
-# --- [1] 문제 데이터베이스 ---
+# --- [1] 문제 데이터베이스 -
 EXAM_DB = {
     "중 1학년": {
         "1회차": { 1: {"ans": 1, "score": 100, "type": "테스트"} } 
