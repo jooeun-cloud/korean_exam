@@ -175,7 +175,7 @@ def render_exam_page(grade):
             with cols[i % 4]:
                 info = current_exam_data[q_num]
                 user_answers[q_num] = st.number_input(
-                    f"{q_num}번 ({info['score']}점) [{info['type']}]", 
+                    f"{q_num}번 ({info['score']}점)", 
                     min_value=1, max_value=5, step=1, key=f"q_{grade}_{selected_round}_{q_num}"
                 )
         
