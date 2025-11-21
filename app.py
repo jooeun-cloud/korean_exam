@@ -242,7 +242,6 @@ def get_google_sheet_data():
     except: return None
 
 # --- [4] 피드백 함수 ---
-# --- [4] 피드백 함수 (리스트 반환형) ---
 def get_feedback_message_list(question_type):
     messages = []
     
@@ -502,7 +501,7 @@ def render_exam_page(grade):
 
 
 # --- [6] 메인 화면 구성 ---
-st.set_page_config(page_title="국어 모의고사 시스템", page_icon="📚", layout="wide")
+st.set_page_config(page_title="사계국어 모의고사 시스템", page_icon="📚", layout="wide")
 # ▼▼▼ [추가] 관리자 비밀번호 설정 (원하는 비번으로 바꾸세요) ▼▼▼
 ADMIN_PASSWORD = "1234" 
 
