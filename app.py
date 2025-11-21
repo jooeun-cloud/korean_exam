@@ -599,6 +599,7 @@ with tab2:
 
 # === [탭 3] 종합 기록부 ===
 
+# === [탭 3] 종합 기록부 (관리자 전용 + 심층 분석 TOP 3) ===
 with tab3:
     st.header("📈 포트폴리오")
     
@@ -608,7 +609,7 @@ with tab3:
         st.info("종합 기록부는 선생님만 열람할 수 있습니다. 왼쪽 사이드바에서 로그인하세요.")
         st.stop()
 
-    # 2. 검색 인터페이스
+    # 2. 검색 인터페이스 (학년별 선택)
     active_grades = [g for g in GRADE_ORDER if g in EXAM_DB]
     
     c1, c2 = st.columns(2)
@@ -655,44 +656,52 @@ with tab3:
                     ).properties(height=300)
                     st.altair_chart(chart, use_container_width=True)
                     
-                    # --- [핵심 추가] 누적 약점 분석 ---
+                    # --- [핵심 수정] 누적 약점 분석 (TOP 3) ---
                     st.markdown("---")
-                    st.markdown("### 2️⃣ 누적 취약점 분석 (AI 진단)")
+                    st.markdown("### 2️⃣ 누적 취약점 분석 (AI 정밀 진단)")
                     
-                    # 모든 회차의 오답 유형을 하나로 모으기
+                    # 모든 회차의 오답 유형 수집
                     all_wrong_types = []
                     for idx, row in my_hist.iterrows():
                         if str(row['Wrong_Types']).strip():
-                            # "문법 | 독서" -> ["문법", "독서"]
                             types = str(row['Wrong_Types']).split(" | ")
                             all_wrong_types.extend(types)
                     
                     if all_wrong_types:
                         from collections import Counter
-                        # 가장 많이 틀린 순서대로 정렬
                         counts = Counter(all_wrong_types)
                         sorted_counts = counts.most_common()
                         
-                        # 화면 분할: 왼쪽(순위표) / 오른쪽(상세 피드백)
+                        # 화면 분할: 왼쪽(순위표) / 오른쪽(상세 처방전)
                         col_list, col_feedback = st.columns([1, 1.5])
                         
                         with col_list:
                             st.write("📉 **가장 많이 틀린 유형 TOP 3**")
                             for i, (w_type, count) in enumerate(sorted_counts[:3]):
-                                st.error(f"**{i+1}위: {w_type}** (총 {count}회 오답)")
+                                # 1,2,3위 색깔 다르게 강조
+                                if i == 0:
+                                    st.error(f"🥇 **1위: {w_type}** (총 {count}회)")
+                                elif i == 1:
+                                    st.warning(f"🥈 **2위: {w_type}** (총 {count}회)")
+                                else:
+                                    st.info(f"🥉 **3위: {w_type}** (총 {count}회)")
                         
                         with col_feedback:
-                            st.info("💡 **맞춤 학습 처방**")
-                            # 1위 약점에 대한 심층 피드백 제공
-                            worst_type = sorted_counts[0][0]
-                            msg = get_feedback_message(worst_type)
+                            st.info("💡 **맞춤 학습 처방 (상위 3개)**")
                             
-                            st.write(f"가장 취약한 **'{worst_type}'** 해결이 시급합니다.")
-                            with st.expander("클릭해서 처방전 보기", expanded=True):
-                                st.markdown(msg)
+                            # 상위 3개 유형에 대해 반복문 실행
+                            for i, (w_type, count) in enumerate(sorted_counts[:3]):
+                                msg = get_feedback_message(w_type)
+                                rank_icon = ["🥇", "🥈", "🥉"][i]
                                 
-                        # (선택) 모든 약점 리스트 펼쳐보기
-                        with st.expander("📋 전체 오답 유형 빈도 확인하기"):
+                                st.markdown(f"**{rank_icon} {w_type} 집중 공략**")
+                                
+                                # 1위는 중요하니까 자동으로 펼쳐두고(expanded=True), 나머지는 접어둡니다.
+                                with st.expander(f"클릭해서 '{w_type}' 처방전 보기", expanded=(i==0)):
+                                    st.markdown(msg)
+                                
+                        # 전체 통계 표
+                        with st.expander("📋 전체 오답 유형 빈도표 확인하기"):
                             st.dataframe(
                                 pd.DataFrame(sorted_counts, columns=["유형", "틀린 횟수"]),
                                 use_container_width=True
@@ -705,7 +714,10 @@ with tab3:
                     # --- 3. 상세 기록 표 ---
                     st.markdown("---")
                     st.markdown("### 3️⃣ 응시 기록 상세")
-                    st.dataframe(my_hist[['Round', 'Score', 'Timestamp', 'Wrong_Types']])
+                    # 보기 좋게 컬럼명 변경해서 출력
+                    history_view = my_hist[['Round', 'Score', 'Timestamp', 'Wrong_Types']].copy()
+                    history_view.columns = ['회차', '점수', '응시일시', '틀린 유형']
+                    st.dataframe(history_view)
                     
                 else:
                     st.warning("응시 기록이 없습니다.")
