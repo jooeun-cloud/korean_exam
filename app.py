@@ -527,25 +527,118 @@ tab1, tab2, tab3 = st.tabs(["📝 시험 응시하기", "🔍 결과 조회", "�
 # 우리가 만들고 싶은 학년 목록 (순서대로)
 GRADE_ORDER = ["중 1학년", "중 2학년", "중 3학년", "고 1학년", "고 2학년", "고 3학년"]
 
-# === [탭 1] 시험 응시 (자동 탭 생성) ===
+# =====================================================================
+# [탭 1] 시험 응시 (점수만 공개, 피드백/등수 숨김)
+# =====================================================================
 with tab1:
     st.header("학년을 선택하세요")
     
-    # 1. EXAM_DB에 있는 학년만 추려서 탭을 만듭니다.
-    # (데이터가 없는 학년은 탭을 안 만들기 위함, 혹은 순서 강제)
-    active_grades = [g for g in GRADE_ORDER if g in EXAM_DB]
+    # active_grades 변수가 위에서 정의되어 있어야 합니다. 
+    # 만약 정의되지 않았다면 이 줄 바로 위에 active_grades = [g for g in GRADE_ORDER if g in EXAM_DB] 추가 필요
     
     if not active_grades:
-        st.error("등록된 문제 데이터(EXAM_DB)가 없습니다.")
+        st.error("데이터가 없습니다.")
     else:
-        # 2. 학년 수만큼 탭 생성
         exam_tabs = st.tabs(active_grades)
         
-        # 3. 반복문으로 각 탭에 시험지 넣기
         for i, grade in enumerate(active_grades):
             with exam_tabs[i]:
-                render_exam_page(grade)
-
+                rounds = list(EXAM_DB[grade].keys())
+                selected_round = st.selectbox("회차 선택", rounds, key=f"ex_rd_{grade}")
+                current_exam_data = EXAM_DB[grade][selected_round]
+                
+                st.info(f"📢 **{grade} - {selected_round}** 응시를 시작합니다.")
+                
+                with st.form(key=f"f_{grade}_{selected_round}"):
+                    c1,c2 = st.columns(2)
+                    nm = st.text_input("이름", key=f"n_{grade}")
+                    sid = st.text_input("학번", key=f"i_{grade}")
+                    st.markdown("---")
+                    
+                    user_answers = {}
+                    u_ans = {} # 정답 저장용
+                    
+                    # 모바일 최적화 (2단 배열)
+                    s_keys = sorted(current_exam_data.keys())
+                    for idx in range(0, len(s_keys), 2):
+                        cols = st.columns(2)
+                        q1 = s_keys[idx]
+                        info1 = current_exam_data[q1]
+                        with cols[0]:
+                            st.markdown(f"**{q1}번** <small>({info1['score']}점)</small>", unsafe_allow_html=True)
+                            u_ans[q1] = st.radio(f"q{q1}", [1,2,3,4,5], horizontal=True, label_visibility="collapsed", index=None, key=f"q_{grade}_{selected_round}_{q1}")
+                            st.write("")
+                        
+                        if idx+1 < len(s_keys):
+                            q2 = s_keys[idx+1]
+                            info2 = current_exam_data[q2]
+                            with cols[1]:
+                                st.markdown(f"**{q2}번** <small>({info2['score']}점)</small>", unsafe_allow_html=True)
+                                u_ans[q2] = st.radio(f"q{q2}", [1,2,3,4,5], horizontal=True, label_visibility="collapsed", index=None, key=f"q_{grade}_{selected_round}_{q2}")
+                                st.write("")
+                                
+                    submit = st.form_submit_button("답안 제출하기", use_container_width=True)
+                
+                if submit:
+                    if not nm or not sid:
+                        st.error("이름과 학번을 입력하세요!")
+                    else:
+                        sheet = get_google_sheet_data()
+                        is_dup = False
+                        if sheet:
+                            try:
+                                recs = sheet.get_all_records()
+                                df = pd.DataFrame(recs)
+                                if not df.empty:
+                                    df['Grade'] = df['Grade'].astype(str).str.strip()
+                                    df['Round'] = df['Round'].astype(str).str.strip()
+                                    df['ID'] = df['ID'].astype(str).str.strip()
+                                    def norm(v):
+                                        try: return str(int(v))
+                                        except: return str(v).strip()
+                                    df['ID_Clean'] = df['ID'].apply(norm)
+                                    in_id = norm(sid)
+                                    dup = df[(df['Grade']==str(grade))&(df['Round']==str(selected_round))&(df['ID_Clean']==in_id)]
+                                    if not dup.empty: is_dup = True
+                            except: pass
+                        
+                        if is_dup:
+                            st.error("⛔ 이미 제출된 기록이 있습니다.")
+                        else:
+                            # 채점 로직
+                            total_score = 0
+                            wrong_list = []
+                            wrong_q_nums = []
+                            
+                            for q, info in current_exam_data.items():
+                                ua = u_ans.get(q, 0)
+                                if ua == info['ans']:
+                                    total_score += info['score']
+                                else:
+                                    wrong_list.append(info['type'])
+                                    wrong_q_nums.append(str(q))
+                            
+                            # 저장 및 결과 출력 (여기가 핵심!)
+                            if sheet:
+                                try:
+                                    w_q_str = ", ".join(wrong_q_nums) if wrong_q_nums else "없음"
+                                    new_row = [grade, selected_round, sid, nm, total_score, " | ".join(wrong_list), datetime.now().strftime("%Y-%m-%d %H:%M:%S"), w_q_str]
+                                    sheet.append_row(new_row)
+                                    
+                                    st.balloons()
+                                    st.success(f"✅ {nm}님, {selected_round} 답안 제출이 완료되었습니다!")
+                                    
+                                    # [점수만 깔끔하게 보여주기]
+                                    st.markdown(f"""
+                                    <div style='text-align: center; border: 2px solid #4CAF50; padding: 20px; border-radius: 10px; background-color: #E8F5E9; margin-top: 20px;'>
+                                        <h3 style='color: #333; margin:0;'>내 점수</h3>
+                                        <h1 style='color: #D32F2F; font-size: 60px; margin: 10px 0;'>{int(total_score)}점</h1>
+                                    </div>
+                                    """, unsafe_allow_html=True)
+                                    
+                                    st.info("👉 상세 피드백과 등수는 **[결과 조회]** 탭에서 확인하세요.")
+                                    
+                                except Exception as e: st.error(f"저장 오류: {e}")
 
 
 # =====================================================================
