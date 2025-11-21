@@ -418,26 +418,45 @@ with tab2:
                                 st.success("⭕ 만점입니다!")
 
                             # --- [관리자 권한 체크 및 분기] ---
+                            # --- [관리자 권한 체크 및 분기] ---
                             if is_admin:
                                 st.info("🔒 **관리자 권한으로 상세 분석 내용을 확인합니다.**")
                                 
-                                # 유형 매핑 복원 (피드백용)
                                 current_db = EXAM_DB[grade][chk_round]
-                                wrong_map = {}
+                                
+                                # [핵심 수정] 피드백 내용(Message)을 기준으로 그룹화
+                                # Key: 피드백 메시지 전체
+                                # Value: 틀린 문제 번호 리스트
+                                feedback_grouping = {}
+                                
                                 for q in w_nums:
                                     if q in current_db:
                                         qt = current_db[q]['type']
-                                        if qt not in wrong_map: wrong_map[qt] = []
-                                        wrong_map[qt].append(q)
+                                        msg = get_feedback_message(qt) # 해당 유형의 피드백 가져오기
+                                        
+                                        if msg not in feedback_grouping:
+                                            feedback_grouping[msg] = []
+                                        feedback_grouping[msg].append(q)
                                 
-                                # 피드백 화면 출력
-                                if wrong_map:
+                                # 화면 출력
+                                if feedback_grouping:
                                     st.markdown("---")
-                                    st.write("### 💡 유형별 상세 분석 (관리자용)")
-                                    for qt, nums in wrong_map.items():
+                                    st.write("### 💡 유형별 상세 분석 (통합)")
+                                    
+                                    for msg, nums in feedback_grouping.items():
+                                        # 문제 번호 나열
                                         nums_txt = ", ".join(map(str, nums))
-                                        with st.expander(f"❌ {qt} (틀린 문제: {nums_txt}번)", expanded=True):
-                                            st.markdown(get_feedback_message(qt))
+                                        
+                                        # Expander 제목을 예쁘게 뽑기 위해 피드백의 '첫 줄(제목)'을 추출
+                                        # 예: "### 🔧 문법..." -> "🔧 문법..."
+                                        title_preview = "상세 피드백"
+                                        first_line = msg.strip().split('\n')[0]
+                                        if "###" in first_line:
+                                            title_preview = first_line.replace("###", "").strip()
+                                        
+                                        # 하나로 통합된 피드백 박스 출력
+                                        with st.expander(f"❌ {title_preview} (틀린 문제: {nums_txt}번)", expanded=True):
+                                            st.markdown(msg)
                                 else:
                                     st.balloons()
                                     st.success("완벽합니다! 피드백이 없습니다.")
@@ -445,11 +464,36 @@ with tab2:
                                 # 성적표 다운로드 버튼
                                 st.write("---")
                                 
-                                # 성적표 다운로드 버튼 생성 (관리자만 가능)
+                                # [추가] 성적표 생성 함수에 넘겨줄 데이터도 '그룹화된 형태'로 변환
+                                # create_report_html 함수는 {유형이름: 번호리스트} 형태를 받습니다.
+                                # 따라서 '피드백 제목'을 '유형이름'처럼 위장해서 넘겨줍니다.
+                                report_map = {}
+                                
+                                # 피드백 제목을 Key로 사용하는 맵 생성
+                                for msg, nums in feedback_grouping.items():
+                                    first_line = msg.strip().split('\n')[0]
+                                    title = first_line.replace("###", "").strip() if "###" in first_line else "기타 유형"
+                                    report_map[title] = nums
+                                
+                                # 단, create_report_html 내부에서 다시 get_feedback_message를 호출하므로
+                                # 이를 우회하기 위해 '임시 피드백 함수'를 람다(Lambda)로 만들어 넘깁니다.
+                                # (이미 메시지 내용을 알고 있으므로, 제목을 주면 본문을 리턴하도록 매핑)
+                                
+                                # 1. 제목 -> 본문 매핑 테이블 생성
+                                title_to_msg = {}
+                                for msg in feedback_grouping.keys():
+                                    first_line = msg.strip().split('\n')[0]
+                                    title = first_line.replace("###", "").strip() if "###" in first_line else "기타 유형"
+                                    title_to_msg[title] = msg
+                                    
+                                # 2. 성적표 생성 호출
                                 report = create_report_html(
                                     grade, chk_round, last_row['Name'], last_row['Score'], 
-                                    rank, total, wrong_map, get_feedback_message
+                                    rank, total, 
+                                    report_map, # 유형 대신 '제목'이 들어간 맵
+                                    lambda x: title_to_msg.get(x, "") # 제목을 넣으면 본문을 주는 가짜 함수
                                 )
+                                
                                 st.download_button(
                                     "📥 성적표 다운로드", report, 
                                     file_name="성적표.html", mime="text/html", 
