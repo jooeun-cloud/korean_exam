@@ -644,26 +644,29 @@ with tab1:
 # =====================================================================
 # [탭 2] 결과 조회 (다중 피드백 매핑 + 오류 수정)
 # =====================================================================
+# =====================================================================
+# [탭 2] 결과 조회 (키 중복 에러 수정 완료)
+# =====================================================================
 with tab2:
     st.header("🔍 성적표 조회")
-    
-    # 1. 데이터가 있는 학년만 골라서 탭 생성
-    active_grades = [g for g in GRADE_ORDER if g in EXAM_DB]
     
     if not active_grades:
         st.warning("데이터가 없습니다.")
     else:
-        # 2. 여기서 탭을 먼저 만듭니다.
         res_tabs = st.tabs(active_grades)
         
-        # 3. 탭 안에 들어갈 내용을 함수로 정의
         def render_res(grade):
             rounds = list(EXAM_DB[grade].keys())
             c1, c2 = st.columns(2)
-            chk_rd = c1.selectbox("회차", rounds, key=f"r_{grade}")
-            chk_id = c2.text_input("학번", key=f"i_{grade}")
             
-            if st.button("조회", key=f"b_{grade}"):
+            # [수정 1] key 이름 변경 (r_ -> res_r_)
+            chk_rd = c1.selectbox("회차", rounds, key=f"res_r_{grade}")
+            
+            # [수정 2] key 이름 변경 (i_ -> res_i_) <-- 여기가 에러 원인이었습니다!
+            chk_id = c2.text_input("학번", key=f"res_i_{grade}")
+            
+            # [수정 3] key 이름 변경 (b_ -> res_b_)
+            if st.button("조회", key=f"res_b_{grade}"):
                 sheet = get_google_sheet_data()
                 if sheet:
                     try:
@@ -707,79 +710,73 @@ with tab2:
                             
                             st.markdown("---")
                             if w_nums: st.error(f"❌ **틀린 문제:** {w_q_str}번")
-                            else: st.success("만점!")
+                            else: st.success("만점입니다!")
                             
-                            # --- [핵심] 다중 피드백 그룹화 로직 ---
-                            # 6번(A피드백), 7번(A피드백, B피드백) -> A(6,7번), B(7번) 으로 정리
-                            
-                            feedback_group = {} # Key: 메시지, Value: [문제번호들]
-                            curr_db = EXAM_DB[grade][chk_rd]
-                            
-                            for q in w_nums:
-                                if q in curr_db:
-                                    qt = curr_db[q]['type']
-                                    
-                                    # get_feedback_message_list는 리스트를 반환합니다!
-                                    # (만약 문자열만 반환하는 옛날 함수라면 리스트로 감싸야 함)
-                                    msgs = get_feedback_message_list(qt)
-                                    if isinstance(msgs, str): msgs = [msgs] # 안전장치
-                                    
-                                    for msg in msgs:
-                                        if msg not in feedback_group:
-                                            feedback_group[msg] = []
-                                        # 중복 번호 방지 (이미 있으면 넣지 않음)
-                                        if q not in feedback_group[msg]:
-                                            feedback_group[msg].append(q)
-                            
-                            # 화면 출력 (관리자 전용)
+                            # --- 관리자 전용 구역 ---
                             if is_admin:
-                                st.info("🔒 상세 분석")
+                                st.info("🔒 **관리자 모드: 상세 분석**")
+                                
+                                # 피드백 그룹화
+                                curr_db = EXAM_DB[grade][chk_rd]
+                                feedback_group = {} 
+                                
+                                for q in w_nums:
+                                    if q in curr_db:
+                                        qt = curr_db[q]['type']
+                                        # 리스트로 받아온 피드백들을 처리
+                                        msgs = get_feedback_message_list(qt)
+                                        
+                                        for msg in msgs:
+                                            if msg not in feedback_group:
+                                                feedback_group[msg] = []
+                                            if q not in feedback_group[msg]:
+                                                feedback_group[msg].append(q)
+                                
                                 if feedback_group:
+                                    st.write("### 💡 유형별 상세 피드백")
                                     for msg, nums in feedback_group.items():
                                         nums.sort()
                                         n_txt = ", ".join(map(str, nums))
                                         
                                         # 제목 추출
                                         title = "상세 피드백"
-                                        if "###" in msg:
-                                            title = msg.strip().split('\n')[0].replace("###", "").strip()
+                                        clean_m = msg.strip()
+                                        if "###" in clean_m:
+                                            title = clean_m.split('\n')[0].replace("###", "").strip()
                                         
                                         with st.expander(f"❌ **{title}** (틀린 문제: {n_txt}번)", expanded=True):
                                             st.markdown(msg)
-                                else:
+                                elif not w_nums:
+                                    st.balloons()
                                     st.success("완벽합니다.")
-                                
-                                # 다운로드 준비
-                                report_map = {} # {제목: 번호리스트}
-                                title_to_msg = {} # {제목: 본문}
-                                
+
+                                # 성적표용 맵핑
+                                report_map = {}
+                                title_to_msg = {}
                                 for msg, nums in feedback_group.items():
+                                    clean_m = msg.strip()
                                     t = "기타"
-                                    if "###" in msg:
-                                        t = msg.strip().split('\n')[0].replace("###", "").strip()
+                                    if "###" in clean_m:
+                                        t = clean_m.split('\n')[0].replace("###", "").strip()
                                     report_map[t] = nums
                                     title_to_msg[t] = msg
                                 
                                 st.markdown("---")
+                                st.write("### 💾 결과 저장")
                                 rpt = create_report_html(
                                     grade, chk_rd, last_row['Name'], last_row['Score'], 
                                     rank, total, report_map, lambda x: title_to_msg.get(x,"")
                                 )
-                                st.download_button("📥 다운로드", rpt, file_name="report.html", mime="text/html", key=f"d_{grade}")
-
+                                st.download_button("📥 성적표 다운로드", rpt, file_name="report.html", mime="text/html", key=f"res_dn_{grade}_{last_row['ID']}")
                             else:
-                                st.warning("🔒 선생님만 상세 내용을 볼 수 있습니다.")
-
-                        else: st.error("기록 없음")
+                                st.warning("🔒 상세 분석과 성적표는 선생님만 볼 수 있습니다.")
+                        else:
+                            st.error("기록 없음")
                     except Exception as e: st.error(f"오류: {e}")
         
-        # 4. [중요] 반복문을 돌면서 각 탭에 내용을 채웁니다.
-        # 이 for문은 반드시 'else:' 블록 안쪽으로 들여쓰기 되어야 합니다.
         for i, g in enumerate(active_grades):
-            with res_tabs[i]: 
-                render_res(g)
+            with res_tabs[i]: render_res(g)
 
-# === [탭 3] 종합 기록부 (관리자 전용 + 포트폴리오 다운로드) ===
 # === [탭 3] 종합 기록부 (관리자 전용 + 똑똑한 피드백 추천) ===
 with tab3:
     st.header("📈 포트폴리오")
