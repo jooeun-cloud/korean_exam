@@ -563,10 +563,10 @@ with tab1:
 
 # === [탭 2] 결과 조회 (자동 탭 생성) ===
 # === [탭 2] 결과 조회 (관리자 기능 포함 + 에러 수정) ===
+# === [탭 2] 결과 조회 ===
 with tab2:
     st.header("🔍 성적표 조회")
     
-    # 학년별 조회 탭 생성
     active_grades = [g for g in GRADE_ORDER if g in EXAM_DB]
     
     if not active_grades:
@@ -574,7 +574,6 @@ with tab2:
     else:
         result_tabs = st.tabs(active_grades)
         
-        # 조회 로직 함수
         def render_result_page(grade):
             if grade not in EXAM_DB: return
             rounds = list(EXAM_DB[grade].keys())
@@ -586,23 +585,21 @@ with tab2:
             if st.button("조회하기", key=f"btn_res_{grade}"):
                 sheet = get_google_sheet_data()
                 if sheet:
-                    try: # <--- 여기서 try가 시작됩니다.
+                    try:
                         records = sheet.get_all_records()
                         df = pd.DataFrame(records)
                         
-                        # 전처리 (0 문제 해결)
+                        # 전처리
                         df['Grade'] = df['Grade'].astype(str).str.strip()
                         df['Round'] = df['Round'].astype(str).str.strip()
                         df['ID'] = df['ID'].astype(str)
-                        
                         def normalize(val):
                             try: return str(int(val))
                             except: return str(val).strip()
-                        
                         df['ID_Clean'] = df['ID'].apply(normalize)
                         in_id = normalize(chk_id)
                         
-                        # 데이터 검색
+                        # 검색
                         my_data = df[
                             (df['Grade'] == str(grade)) & 
                             (df['Round'] == str(chk_round)) & 
@@ -618,7 +615,7 @@ with tab2:
                             total = len(round_data)
                             pct = (rank / total) * 100
                             
-                            # --- 기본 정보 출력 ---
+                            # --- [1] 공통 화면: 점수 및 등수 (누구나 볼 수 있음) ---
                             st.divider()
                             st.subheader(f"📢 {grade} {last_row['Name']}님의 결과")
                             m1, m2, m3 = st.columns(3)
@@ -626,110 +623,93 @@ with tab2:
                             m2.metric("등수", f"{rank} / {total}")
                             m3.metric("상위", f"{pct:.1f}%")
                             
-                            # 틀린 문제 번호 가져오기
+                            # 틀린 문제 번호
                             w_q_str = str(last_row.get('Wrong_Questions', ''))
-                            w_nums = [int(x.strip()) for x in w_q_str.split(",") if x.strip().isdigit()] if w_q_str != "없음" else []
+                            w_nums = []
+                            if w_q_str and w_q_str != "없음":
+                                w_nums = [int(x.strip()) for x in w_q_str.split(",") if x.strip().isdigit()]
                             
                             st.markdown("---")
                             if w_nums:
                                 st.error(f"❌ **틀린 문제 번호:** {w_q_str}번")
                             else:
-                                st.success("⭕ 만점입니다!")
+                                st.success("⭕ 만점입니다! 축하합니다.")
 
-                            # --- [관리자 권한 체크 및 분기] ---
-                            # --- [관리자 권한 체크 및 분기] ---
+                            # --- [2] 권한 분기점 ---
                             if is_admin:
+                                # ================= 관리자 모드 =================
                                 st.info("🔒 **관리자 권한으로 상세 분석 내용을 확인합니다.**")
                                 
+                                # 2-1. 유형 매핑 및 그룹화
                                 current_db = EXAM_DB[grade][chk_round]
-                                
-                                # [핵심 수정] 피드백 내용(Message)을 기준으로 그룹화
-                                # Key: 피드백 메시지 전체
-                                # Value: 틀린 문제 번호 리스트
-                                feedback_grouping = {}
-                                
+                                wrong_map = {}
                                 for q in w_nums:
                                     if q in current_db:
                                         qt = current_db[q]['type']
-                                        msg = get_feedback_message(qt) # 해당 유형의 피드백 가져오기
-                                        
-                                        if msg not in feedback_grouping:
-                                            feedback_grouping[msg] = []
-                                        feedback_grouping[msg].append(q)
+                                        if qt not in wrong_map: wrong_map[qt] = []
+                                        wrong_map[qt].append(q)
                                 
-                                # 화면 출력
-                                if feedback_grouping:
-                                    st.markdown("---")
-                                    st.write("### 💡 유형별 상세 분석 (통합)")
-                                    
-                                    for msg, nums in feedback_grouping.items():
-                                        # 문제 번호 나열
-                                        nums_txt = ", ".join(map(str, nums))
-                                        
-                                        # Expander 제목을 예쁘게 뽑기 위해 피드백의 '첫 줄(제목)'을 추출
-                                        # 예: "### 🔧 문법..." -> "🔧 문법..."
-                                        title_preview = "상세 피드백"
-                                        first_line = msg.strip().split('\n')[0]
-                                        if "###" in first_line:
-                                            title_preview = first_line.replace("###", "").strip()
-                                        
-                                        # 하나로 통합된 피드백 박스 출력
-                                        with st.expander(f"❌ {title_preview} (틀린 문제: {nums_txt}번)", expanded=True):
+                                # 2-2. 피드백 출력
+                                if wrong_map:
+                                    st.write("### 💡 유형별 상세 피드백")
+                                    for q_type, q_list in wrong_map.items():
+                                        nums_txt = ", ".join(map(str, q_list))
+                                        msg = get_feedback_message(q_type)
+                                        with st.expander(f"❌ **{q_type}** (틀린 문제: {nums_txt}번)", expanded=True):
                                             st.markdown(msg)
-                                else:
+                                elif not w_nums:
                                     st.balloons()
-                                    st.success("완벽합니다! 피드백이 없습니다.")
+                                    st.success("약점이 없습니다.")
 
-                                # 성적표 다운로드 버튼
-                                st.write("---")
-                                
-                                # [추가] 성적표 생성 함수에 넘겨줄 데이터도 '그룹화된 형태'로 변환
-                                # create_report_html 함수는 {유형이름: 번호리스트} 형태를 받습니다.
-                                # 따라서 '피드백 제목'을 '유형이름'처럼 위장해서 넘겨줍니다.
-                                report_map = {}
-                                
-                                # 피드백 제목을 Key로 사용하는 맵 생성
-                                for msg, nums in feedback_grouping.items():
-                                    first_line = msg.strip().split('\n')[0]
-                                    title = first_line.replace("###", "").strip() if "###" in first_line else "기타 유형"
-                                    report_map[title] = nums
-                                
-                                # 단, create_report_html 내부에서 다시 get_feedback_message를 호출하므로
-                                # 이를 우회하기 위해 '임시 피드백 함수'를 람다(Lambda)로 만들어 넘깁니다.
-                                # (이미 메시지 내용을 알고 있으므로, 제목을 주면 본문을 리턴하도록 매핑)
-                                
-                                # 1. 제목 -> 본문 매핑 테이블 생성
-                                title_to_msg = {}
-                                for msg in feedback_grouping.keys():
-                                    first_line = msg.strip().split('\n')[0]
-                                    title = first_line.replace("###", "").strip() if "###" in first_line else "기타 유형"
-                                    title_to_msg[title] = msg
-                                    
-                                # 2. 성적표 생성 호출
+                                # 2-3. 강점 분석
+                                st.markdown("---")
+                                st.write("##### 🌟 학생 강점 분석")
+                                saved_w_types = str(last_row.get('Wrong_Types', '')).split(" | ")
+                                found_str = False
+                                keys_map = {
+                                    "문법": ["문법", "음운", "중세"],
+                                    "비문학": ["비문학", "철학", "경제", "기술", "과학", "인문", "사회"],
+                                    "문학": ["문학", "시가", "소설", "운문", "산문"],
+                                    "화법": ["화법", "강연", "말하기"],
+                                    "보기": ["보기", "적용"]
+                                }
+                                for label, keywords in keys_map.items():
+                                    is_wrong = any(any(k in w for k in keywords) for w in saved_w_types)
+                                    has_q = any(any(k in info['type'] for k in keywords) for info in current_db.values())
+                                    if has_q and not is_wrong:
+                                        st.write(f"- {get_strength_message(label)}")
+                                        found_str = True
+                                if not found_str: st.write("- 골고루 오답이 있어 특정 강점이 추출되지 않았습니다.")
+
+                                # 2-4. 다운로드 버튼
+                                st.markdown("---")
+                                st.write("### 💾 결과 저장")
                                 report = create_report_html(
                                     grade, chk_round, last_row['Name'], last_row['Score'], 
-                                    rank, total, 
-                                    report_map, # 유형 대신 '제목'이 들어간 맵
-                                    lambda x: title_to_msg.get(x, "") # 제목을 넣으면 본문을 주는 가짜 함수
+                                    rank, total, wrong_map, get_feedback_message
                                 )
-                                
                                 st.download_button(
                                     "📥 성적표 다운로드", report, 
-                                    file_name="성적표.html", mime="text/html", 
+                                    file_name=f"{grade}_{last_row['Name']}_성적표.html", 
+                                    mime="text/html", 
                                     key=f"res_dn_{grade}"
                                 )
+                                with st.expander("📱 모바일 저장 방법"):
+                                    st.write("파일 열기 > 공유 > 인쇄 > PDF로 저장")
                             
                             else:
-                                # [학생일 경우]
-                                st.warning("🔒 **상세 피드백과 성적표 다운로드는 선생님(관리자)만 확인할 수 있습니다.**")
-                                st.write("틀린 문제 번호를 확인하고 오답노트를 작성하세요.")
+                                # ================= 학생 모드 =================
+                                st.warning("🔒 **상세 분석(피드백)과 성적표는 선생님만 확인할 수 있습니다.**")
+                                st.caption("위의 점수와 틀린 문제 번호를 확인하고 오답노트를 작성하세요.")
                         
                         else:
                             st.error("기록이 없습니다.")
-                    
-                    except Exception as e: # <--- 아까 이 부분이 빠져있었습니다!
+                    except Exception as e:
                         st.error(f"조회 중 오류 발생: {e}")
 
+        for i, grade in enumerate(active_grades):
+            with result_tabs[i]:
+                render_result_page(grade)
         # 반복문으로 탭 생성
         for i, grade in enumerate(active_grades):
             with result_tabs[i]:
