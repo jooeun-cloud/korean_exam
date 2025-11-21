@@ -6,7 +6,6 @@ from oauth2client.service_account import ServiceAccountCredentials
 import altair as alt
 
 # --- [1] 문제 데이터베이스 ---
-# --- [1] 문제 데이터베이스 ---
 EXAM_DB = {
     "중 1학년": {
         "1회차": { 1: {"ans": 1, "score": 100, "type": "테스트"} } 
@@ -114,6 +113,119 @@ def create_report_html(grade, round_name, name, score, rank, total_students, wro
             <h3 style="border-bottom: 2px solid #ddd; padding-bottom: 10px;">💊 유형별 오답 분석 및 처방</h3>
             {feedback_section_html}
             <div class="footer">위 학생의 모의고사 결과를 증명합니다.<br>Designed by AI Teacher</div>
+        </div>
+    </body>
+    </html>
+    """
+    return html
+    
+# --- [추가] 종합 포트폴리오 HTML 생성 함수 ---
+def create_portfolio_html(grade, name, total_count, avg_score, max_score, weakness_data, history_df):
+    now = datetime.now().strftime("%Y년 %m월 %d일")
+    
+    # 1. 취약점 HTML 생성
+    weakness_html = ""
+    if weakness_data:
+        for rank, (w_type, count, clean_msg) in enumerate(weakness_data):
+            weakness_html += f"""
+            <div class='section-box'>
+                <div class='box-title'>
+                    <span class='rank-badge'>{rank+1}위</span> {w_type} (총 {count}회 오답)
+                </div>
+                <div class='box-content'>{clean_msg}</div>
+            </div>
+            """
+    else:
+        weakness_html = "<div style='padding:20px; text-align:center;'>🎉 완벽합니다! 발견된 약점이 없습니다.</div>"
+
+    # 2. 히스토리 테이블 HTML 생성
+    history_rows = ""
+    # 최신순 정렬되어 있다고 가정
+    for idx, row in history_df.iterrows():
+        wrong_summary = row['Wrong_Types'] if row['Wrong_Types'] else "없음 (만점)"
+        history_rows += f"""
+        <tr>
+            <td>{row['Round']}</td>
+            <td>{row['Timestamp'].split(' ')[0]}</td> <td><b style='color:#D32F2F;'>{int(row['Score'])}점</b></td>
+            <td style='text-align:left; font-size:12px;'>{wrong_summary}</td>
+        </tr>
+        """
+
+    html = f"""
+    <!DOCTYPE html>
+    <html lang="ko">
+    <head>
+        <meta charset="UTF-8">
+        <title>{name} 종합 포트폴리오</title>
+        <style>
+            body {{ font-family: 'Malgun Gothic', sans-serif; padding: 30px; color: #333; }}
+            .paper {{ max-width: 800px; margin: 0 auto; border: 2px solid #444; padding: 40px; }}
+            h1 {{ text-align: center; border-bottom: 3px solid #444; padding-bottom: 10px; margin-bottom: 10px; }}
+            .sub-title {{ text-align: center; margin-bottom: 30px; color: #666; font-size: 14px; }}
+            
+            /* 요약 통계 박스 */
+            .stats-container {{ display: flex; justify-content: space-between; margin-bottom: 30px; background: #f9f9f9; padding: 15px; border-radius: 8px; }}
+            .stat-item {{ text-align: center; width: 30%; }}
+            .stat-label {{ font-size: 12px; color: #666; }}
+            .stat-value {{ font-size: 24px; font-weight: bold; color: #333; }}
+            
+            /* 섹션 스타일 */
+            h2 {{ border-left: 5px solid #D32F2F; padding-left: 10px; margin-top: 30px; font-size: 20px; }}
+            
+            /* 취약점 박스 */
+            .section-box {{ border: 1px solid #ccc; margin-bottom: 15px; break-inside: avoid; page-break-inside: avoid; }}
+            .box-title {{ background: #eee; padding: 8px 15px; font-weight: bold; border-bottom: 1px solid #ccc; }}
+            .rank-badge {{ background: #D32F2F; color: white; padding: 2px 6px; border-radius: 4px; font-size: 12px; margin-right: 5px; }}
+            .box-content {{ padding: 15px; font-size: 13px; line-height: 1.5; }}
+            
+            /* 표 스타일 */
+            table {{ width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }}
+            th {{ background: #f4f4f4; border-bottom: 2px solid #999; padding: 8px; }}
+            td {{ border-bottom: 1px solid #ddd; padding: 8px; text-align: center; }}
+            
+            .footer {{ text-align: center; margin-top: 50px; font-size: 11px; color: #888; border-top: 1px solid #eee; padding-top: 10px; }}
+        </style>
+    </head>
+    <body>
+        <div class="paper">
+            <h1>📈 국어 학습 종합 분석 보고서</h1>
+            <div class="sub-title">수험자: {grade} <b>{name}</b> | 작성일: {now}</div>
+            
+            <div class="stats-container">
+                <div class="stat-item">
+                    <div class="stat-label">총 응시</div>
+                    <div class="stat-value">{total_count}회</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">평균 점수</div>
+                    <div class="stat-value">{avg_score:.1f}점</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">최고 점수</div>
+                    <div class="stat-value" style="color:#D32F2F;">{int(max_score)}점</div>
+                </div>
+            </div>
+
+            <h2>2️⃣ 누적 약점 및 처방 (TOP 3)</h2>
+            <p style="font-size:13px; color:#666;">데이터 분석 결과, 가장 많이 틀린 유형에 대한 맞춤 처방입니다.</p>
+            {weakness_html}
+
+            <h2>3️⃣ 전체 응시 이력</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th width="15%">회차</th>
+                        <th width="20%">응시일</th>
+                        <th width="15%">점수</th>
+                        <th>오답 유형 요약</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {history_rows}
+                </tbody>
+            </table>
+            
+            <div class="footer">Designed by AI Teacher | 본 리포트는 학생의 학습 지도를 위한 참고 자료입니다.</div>
         </div>
     </body>
     </html>
@@ -599,17 +711,15 @@ with tab2:
 
 # === [탭 3] 종합 기록부 ===
 
-# === [탭 3] 종합 기록부 (관리자 전용 + 심층 분석 TOP 3) ===
+# === [탭 3] 종합 기록부 (관리자 전용 + 포트폴리오 다운로드) ===
 with tab3:
     st.header("📈 포트폴리오")
     
-    # 1. 관리자 권한 체크
     if not is_admin:
         st.error("⛔ **접근 권한이 없습니다.**")
-        st.info("종합 기록부는 선생님만 열람할 수 있습니다. 왼쪽 사이드바에서 로그인하세요.")
+        st.info("종합 기록부는 선생님만 열람할 수 있습니다.")
         st.stop()
 
-    # 2. 검색 인터페이스 (학년별 선택)
     active_grades = [g for g in GRADE_ORDER if g in EXAM_DB]
     
     c1, c2 = st.columns(2)
@@ -632,19 +742,18 @@ with tab3:
                 df['ID_Clean'] = df['ID'].apply(normalize)
                 in_id = normalize(pid)
                 
-                # 데이터 필터링
                 my_hist = df[(df['Grade']==str(pg)) & (df['ID_Clean']==in_id)]
                 
                 if not my_hist.empty:
-                    # --- 기본 정보 및 그래프 ---
                     student_name = my_hist.iloc[-1]['Name']
                     st.success(f"**{pg} {student_name}**님의 성장 기록입니다.")
                     
                     avg_score = my_hist['Score'].mean()
                     max_score = my_hist['Score'].max()
+                    total_count = len(my_hist)
                     
                     m1, m2, m3 = st.columns(3)
-                    m1.metric("총 응시 횟수", f"{len(my_hist)}회")
+                    m1.metric("총 응시", f"{total_count}회")
                     m2.metric("평균 점수", f"{avg_score:.1f}점")
                     m3.metric("최고 점수", f"{int(max_score)}점")
                     
@@ -656,68 +765,74 @@ with tab3:
                     ).properties(height=300)
                     st.altair_chart(chart, use_container_width=True)
                     
-                    # --- [핵심 수정] 누적 약점 분석 (TOP 3) ---
+                    # --- 누적 약점 분석 ---
                     st.markdown("---")
-                    st.markdown("### 2️⃣ 누적 취약점 분석 (AI 정밀 진단)")
+                    st.markdown("### 2️⃣ 누적 취약점 분석 (TOP 3)")
                     
-                    # 모든 회차의 오답 유형 수집
                     all_wrong_types = []
                     for idx, row in my_hist.iterrows():
                         if str(row['Wrong_Types']).strip():
                             types = str(row['Wrong_Types']).split(" | ")
                             all_wrong_types.extend(types)
                     
+                    weakness_report_data = [] # 리포트 생성용 데이터 저장 리스트
+                    
                     if all_wrong_types:
                         from collections import Counter
                         counts = Counter(all_wrong_types)
                         sorted_counts = counts.most_common()
                         
-                        # 화면 분할: 왼쪽(순위표) / 오른쪽(상세 처방전)
                         col_list, col_feedback = st.columns([1, 1.5])
                         
                         with col_list:
-                            st.write("📉 **가장 많이 틀린 유형 TOP 3**")
+                            st.write("📉 **많이 틀린 유형**")
                             for i, (w_type, count) in enumerate(sorted_counts[:3]):
-                                # 1,2,3위 색깔 다르게 강조
-                                if i == 0:
-                                    st.error(f"🥇 **1위: {w_type}** (총 {count}회)")
-                                elif i == 1:
-                                    st.warning(f"🥈 **2위: {w_type}** (총 {count}회)")
-                                else:
-                                    st.info(f"🥉 **3위: {w_type}** (총 {count}회)")
+                                icon = ["🥇", "🥈", "🥉"][i]
+                                st.write(f"{icon} **{w_type}** ({count}회)")
                         
                         with col_feedback:
-                            st.info("💡 **맞춤 학습 처방 (상위 3개)**")
-                            
-                            # 상위 3개 유형에 대해 반복문 실행
+                            st.info("💡 **맞춤 처방전**")
                             for i, (w_type, count) in enumerate(sorted_counts[:3]):
-                                msg = get_feedback_message(w_type)
-                                rank_icon = ["🥇", "🥈", "🥉"][i]
+                                raw_msg = get_feedback_message(w_type)
                                 
-                                st.markdown(f"**{rank_icon} {w_type} 집중 공략**")
+                                # 화면 출력
+                                with st.expander(f"클릭: {w_type} 처방", expanded=(i==0)):
+                                    st.markdown(raw_msg)
                                 
-                                # 1위는 중요하니까 자동으로 펼쳐두고(expanded=True), 나머지는 접어둡니다.
-                                with st.expander(f"클릭해서 '{w_type}' 처방전 보기", expanded=(i==0)):
-                                    st.markdown(msg)
+                                # [리포트용 데이터 준비] 마크다운 -> HTML 변환
+                                clean_msg = raw_msg.strip().replace(">", "💡").replace("**", "").replace("-", "•").replace("\n", "<br>")
+                                if clean_msg.startswith("###"):
+                                    parts = clean_msg.split("<br>", 1)
+                                    title = parts[0].replace("###", "").strip()
+                                    body = parts[1] if len(parts) > 1 else ""
+                                    clean_msg = f"<div style='font-weight:bold; margin-bottom:5px;'>{title}</div><div>{body}</div>"
                                 
-                        # 전체 통계 표
-                        with st.expander("📋 전체 오답 유형 빈도표 확인하기"):
-                            st.dataframe(
-                                pd.DataFrame(sorted_counts, columns=["유형", "틀린 횟수"]),
-                                use_container_width=True
-                            )
-                            
+                                weakness_report_data.append((w_type, count, clean_msg))
                     else:
-                        st.balloons()
-                        st.success("🎉 대단합니다! 지금까지 틀린 문제가 단 하나도 없습니다.")
+                        st.success("약점이 없습니다.")
 
-                    # --- 3. 상세 기록 표 ---
+                    # --- 상세 기록 및 다운로드 ---
                     st.markdown("---")
-                    st.markdown("### 3️⃣ 응시 기록 상세")
-                    # 보기 좋게 컬럼명 변경해서 출력
+                    st.markdown("### 3️⃣ 응시 기록 및 저장")
+                    
                     history_view = my_hist[['Round', 'Score', 'Timestamp', 'Wrong_Types']].copy()
                     history_view.columns = ['회차', '점수', '응시일시', '틀린 유형']
                     st.dataframe(history_view)
+                    
+                    # [NEW] 포트폴리오 다운로드 버튼
+                    portfolio_html = create_portfolio_html(
+                        pg, student_name, total_count, avg_score, max_score, 
+                        weakness_report_data, my_hist
+                    )
+                    
+                    st.download_button(
+                        label="📥 종합 포트폴리오 다운로드 (PDF 저장용)",
+                        data=portfolio_html,
+                        file_name=f"{student_name}_종합분석보고서.html",
+                        mime="text/html"
+                    )
+                    with st.expander("📱 모바일 저장 방법"):
+                        st.write("파일 열기 > 공유 > 인쇄 > PDF로 저장")
                     
                 else:
                     st.warning("응시 기록이 없습니다.")
