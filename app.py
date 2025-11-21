@@ -599,17 +599,22 @@ with tab2:
 
 # === [탭 3] 종합 기록부 ===
 with tab3:
+    # === [탭 3] 종합 기록부 (관리자 전용 + 심층 분석) ===
+with tab3:
     st.header("📈 포트폴리오")
+    
+    # 1. 관리자 권한 체크
     if not is_admin:
         st.error("⛔ **접근 권한이 없습니다.**")
         st.info("종합 기록부는 선생님만 열람할 수 있습니다. 왼쪽 사이드바에서 로그인하세요.")
-        st.stop() # 여기서 코드 실행을 멈춥니다 (아래 내용 안 보임)
-    
-    # 여기도 GRADE_ORDER 순서대로 보여주면 깔끔합니다.
+        st.stop()
+
+    # 2. 검색 인터페이스
     active_grades = [g for g in GRADE_ORDER if g in EXAM_DB]
     
-    pg = st.selectbox("학년", active_grades, key="pg")
-    pid = st.text_input("학번(ID)", key="pid")
+    c1, c2 = st.columns(2)
+    pg = c1.selectbox("학년", active_grades, key="pg")
+    pid = c2.text_input("학번(ID)", key="pid")
     
     if st.button("분석 보기"):
         sheet = get_google_sheet_data()
@@ -617,6 +622,7 @@ with tab3:
             try:
                 records = sheet.get_all_records()
                 df = pd.DataFrame(records)
+                
                 # 전처리
                 df['Grade'] = df['Grade'].astype(str).str.strip()
                 df['ID'] = df['ID'].astype(str)
@@ -626,15 +632,82 @@ with tab3:
                 df['ID_Clean'] = df['ID'].apply(normalize)
                 in_id = normalize(pid)
                 
+                # 데이터 필터링
                 my_hist = df[(df['Grade']==str(pg)) & (df['ID_Clean']==in_id)]
                 
                 if not my_hist.empty:
-                    st.success(f"**{pg} {my_hist.iloc[-1]['Name']}**님의 성장 기록")
+                    # --- 기본 정보 및 그래프 ---
+                    student_name = my_hist.iloc[-1]['Name']
+                    st.success(f"**{pg} {student_name}**님의 성장 기록입니다.")
+                    
+                    avg_score = my_hist['Score'].mean()
+                    max_score = my_hist['Score'].max()
+                    
+                    m1, m2, m3 = st.columns(3)
+                    m1.metric("총 응시 횟수", f"{len(my_hist)}회")
+                    m2.metric("평균 점수", f"{avg_score:.1f}점")
+                    m3.metric("최고 점수", f"{int(max_score)}점")
+                    
+                    st.markdown("### 1️⃣ 성적 변화 추이")
                     chart = alt.Chart(my_hist).mark_line(point=True).encode(
-                        x='Round', y=alt.Y('Score', scale=alt.Scale(domain=[0, 100]))
-                    )
+                        x=alt.X('Round', sort=None, title='시험 회차'),
+                        y=alt.Y('Score', scale=alt.Scale(domain=[0, 100]), title='점수'),
+                        tooltip=['Round', 'Score']
+                    ).properties(height=300)
                     st.altair_chart(chart, use_container_width=True)
-                    st.dataframe(my_hist[['Round', 'Score', 'Wrong_Types']])
+                    
+                    # --- [핵심 추가] 누적 약점 분석 ---
+                    st.markdown("---")
+                    st.markdown("### 2️⃣ 누적 취약점 분석 (AI 진단)")
+                    
+                    # 모든 회차의 오답 유형을 하나로 모으기
+                    all_wrong_types = []
+                    for idx, row in my_hist.iterrows():
+                        if str(row['Wrong_Types']).strip():
+                            # "문법 | 독서" -> ["문법", "독서"]
+                            types = str(row['Wrong_Types']).split(" | ")
+                            all_wrong_types.extend(types)
+                    
+                    if all_wrong_types:
+                        from collections import Counter
+                        # 가장 많이 틀린 순서대로 정렬
+                        counts = Counter(all_wrong_types)
+                        sorted_counts = counts.most_common()
+                        
+                        # 화면 분할: 왼쪽(순위표) / 오른쪽(상세 피드백)
+                        col_list, col_feedback = st.columns([1, 1.5])
+                        
+                        with col_list:
+                            st.write("📉 **가장 많이 틀린 유형 TOP 3**")
+                            for i, (w_type, count) in enumerate(sorted_counts[:3]):
+                                st.error(f"**{i+1}위: {w_type}** (총 {count}회 오답)")
+                        
+                        with col_feedback:
+                            st.info("💡 **맞춤 학습 처방**")
+                            # 1위 약점에 대한 심층 피드백 제공
+                            worst_type = sorted_counts[0][0]
+                            msg = get_feedback_message(worst_type)
+                            
+                            st.write(f"가장 취약한 **'{worst_type}'** 해결이 시급합니다.")
+                            with st.expander("클릭해서 처방전 보기", expanded=True):
+                                st.markdown(msg)
+                                
+                        # (선택) 모든 약점 리스트 펼쳐보기
+                        with st.expander("📋 전체 오답 유형 빈도 확인하기"):
+                            st.dataframe(
+                                pd.DataFrame(sorted_counts, columns=["유형", "틀린 횟수"]),
+                                use_container_width=True
+                            )
+                            
+                    else:
+                        st.balloons()
+                        st.success("🎉 대단합니다! 지금까지 틀린 문제가 단 하나도 없습니다.")
+
+                    # --- 3. 상세 기록 표 ---
+                    st.markdown("---")
+                    st.markdown("### 3️⃣ 응시 기록 상세")
+                    st.dataframe(my_hist[['Round', 'Score', 'Timestamp', 'Wrong_Types']])
+                    
                 else:
-                    st.warning("기록이 없습니다.")
+                    st.warning("응시 기록이 없습니다.")
             except Exception as e: st.error(f"오류: {e}")
