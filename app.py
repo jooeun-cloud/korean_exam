@@ -240,8 +240,12 @@ def render_exam_page(grade):
             wrong_q_nums = []
             wrong_map = {}
             
+            # (채점 로직 for문 안에서)
             for q, info in current_exam_data.items():
-                if user_answers[q] == info['ans']:
+                # user_answers[q]가 None(선택 안함)일 경우 0으로 처리
+                user_ans = user_answers[q] if user_answers[q] is not None else 0
+                
+                if user_ans == info['ans']:
                     total_score += info['score']
                 else:
                     wrong_list.append(info['type'])
