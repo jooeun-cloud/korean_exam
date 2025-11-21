@@ -15,6 +15,10 @@ with st.sidebar:
     if input_pw == ADMIN_PASSWORD:
         st.session_state['is_admin'] = True
         st.success("관리자 모드 ON ✅")
+        st.markdown("---")
+        if st.button("🔄 문제 DB 새로고침"):
+            st.cache_data.clear()
+            st.rerun()
     else:
         st.session_state['is_admin'] = False
 
