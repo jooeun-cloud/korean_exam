@@ -24,7 +24,7 @@ EXAM_DB = {
             4: {"ans": 5, "score": 3, "type": "문법 (음운 변동)"},
             5: {"ans": 1, "score": 3, "type": "문법 (음운 사례)"},
             6: {"ans": 1, "score": 4, "type": "문법 (문장 구조)"},
-            7: {"ans": 5, "score": 3, "type": "매체 (사전 정보)"},
+            7: {"ans": 5, "score": 3, "type": "문법 (국어사전 활용)"},
             8: {"ans": 1, "score": 3, "type": "문법 (중세 국어)"},
             9: {"ans": 2, "score": 3, "type": "독서 (철학/내용)"},
             10: {"ans": 5, "score": 3, "type": "독서 (철학/세부)"},
@@ -300,6 +300,14 @@ def get_feedback_message(question_type):
 **2. Action Plan**
 1. 현대어 풀이를 보며 다른 조사(이/가, ㅅ)를 찾으세요.""")
 
+    if "국어사전" in question_type:
+        messages.append("""### 📖 [심층 분석] 문법: 사전 정보의 해석
+**1. 진단**
+사전에 제시된 기호(품사)와 문형 정보(필수 성분)를 해석하는 능력이 부족합니다.
+**2. Action Plan**
+1. 품사 기호 확인: 󰂿(동사)와 󰃰(형용사)를 가장 먼저 구분하세요.
+2. 문형 정보 확인: 【…에】 같은 표시는 반드시 필요한 문장 성분(부사어)을 뜻합니다.""")
+        
     if "강연" in question_type or "말하기" in question_type or "화법" in question_type:
         messages.append("""### 🗣️ [심층 분석] 화법: 말하기 '전략' 파악
 **1. 진단**
