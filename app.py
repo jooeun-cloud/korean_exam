@@ -132,7 +132,7 @@ def get_google_sheet_data():
 # --- [4] 피드백 함수 ---
 def get_feedback_message(question_type):
     # 통합된 카테고리 이름을 기준으로 피드백을 제공합니다.
-    if "화법" in question_type:
+    if "화법" in question_type or "매체" in question_type:
         return """### 🗣️ [심층 분석] 화법: 강연자의 '전략'을 꿰뚫어 보세요.
 **1. 진단**
 내용 일치보다 강연자가 사용한 **'말하기 장치'**를 놓쳤기 때문입니다.
@@ -140,7 +140,7 @@ def get_feedback_message(question_type):
 **2. Action Plan**
 1. '질문을 통해', '자료를 제시하며' 같은 서술어 찾기.
 2. (웃으며) 같은 비언어적 표현 체크하기."""
-    if "음운" in question_type or "매체" in question_type:
+    if "음운" in question_type:
         return """### 🛑 [긴급 처방] 문법: '음운 변동'의 원리를 놓치고 있습니다.
         
 **1. 진단**
