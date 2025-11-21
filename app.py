@@ -172,23 +172,34 @@ def get_feedback_message_list(question_type):
     if "철학" in question_type or "인문" in question_type:
         messages.append("""### 🧠 [심층 분석] 인문/철학: 관점 비교
 **1. 진단**
-사상가(A vs B)의 관점 차이나 용어 정의를 놓쳤습니다.
+사상가(A vs B)의 관점 차이나 용어 정의를 놓쳤습니다. 
 **2. Action Plan**
 1. 학자별 공통점/차이점을 표로 정리하세요.""")
+        
+    if "예술" in question_type or "미학" in question_type:
+        messages.append("""### 🎨 [심층 분석] 예술: '이론'과 '작품'의 매칭
+**1. 진단**
+미학 이론이나 예술 기법(원근법, 몽타주 등)을 구체적인 작품 사례에 적용하지 못했습니다. 
+**2. Action Plan**
+1. **이론+사례 연결:** 지문에 나온 기법 설명이 <보기>나 예시 작품의 어느 부분에 해당하는지 1:1로 연결하세요.
+2. **관점 비교:** 시대별 양식(르네상스 vs 바로크)이나 비평가의 관점 차이를 대조하며 읽으세요.""")
 
     if "경제" in question_type or "사회" in question_type or ("법" in question_type and "문법" not in question_type and "화법" not in question_type):
         messages.append("""### 📈 [심층 분석] 사회/경제: 인과 관계
 **1. 진단**
-변수의 비례/반비례 관계를 놓쳤습니다.
+변수의 비례/반비례 관계를 놓쳤습니다. 
 **2. Action Plan**
 1. 화살표 메모(`금리↑ → 투자↓`)를 하세요.""")
 
     if "과학" in question_type or "기술" in question_type:
         messages.append("""### ⚙️ [심층 분석] 과학/기술: 작동 원리
 **1. 진단**
-장치의 구조와 작동 순서가 꼬였습니다.
+과학 지문은 특정 현상이 일어나는 순서와 구성 요소 간의 상호작용을 설명하는 글입니다.
+
 **2. Action Plan**
-1. 구조도를 간단히 그리세요.""")
+1. 과정의 시각화: 생물학적 반응이나 물리적 변화 과정이 나오면 눈으로만 읽지 말고, 여백에 간단한 순서도나 화살표를 그려서 정리하세요. 
+2. 변수 사이의 비례/반비례 관계가 나오면 체크하세요. 
+3. 제약 조건이나 예외 상황에 밑줄을 그으세요. """)
 
     if "소설" in question_type or "서사" in question_type:
         messages.append("""### 🎭 [심층 분석] 문학(산문): 갈등 파악
