@@ -242,136 +242,109 @@ def get_google_sheet_data():
     except: return None
 
 # --- [4] 피드백 함수 ---
-def get_feedback_message(question_type):
-    messages = [] # 피드백을 모을 빈 리스트
-
-    # =========================================================
-    # [1] 영역/제재별 피드백
-    # =========================================================
+# --- [4] 피드백 함수 (리스트 반환형) ---
+def get_feedback_message_list(question_type):
+    messages = []
     
-    # 1-1. 독서(비문학) 제재
-    if "철학" in question_type or "인문" in question_type:
-        messages.append("""### 🧠 [심층 분석] 인문/철학: 사상가의 '관점' 비교
+    # 1. [문법] 공통
+    if "문법" in question_type or "문장" in question_type:
+        # 단, 음운이나 사전 같은 특수 문법은 제외하고 일반 문법 피드백
+        if "음운" not in question_type and "사전" not in question_type and "중세" not in question_type:
+            messages.append("""### 🏗️ [심층 분석] 문법: 문장의 '뼈대' 찾기
 **1. 진단**
-사상가(A vs B)의 관점 차이나 용어 정의를 놓쳤습니다.
+문장 성분 분석과 조사의 쓰임을 놓쳤을 가능성이 큽니다.
 **2. Action Plan**
-1. 학자별 공통점/차이점을 표로 정리하세요.
-2. '그러나', '반면' 뒤에 나오는 핵심 주장에 주목하세요.""")
+1. 서술어(동사/형용사)에 밑줄을 그으세요.
+2. 주어, 목적어, 보어를 연결하세요.""")
 
-    # ▼▼▼ [핵심 수정] "법"은 찾되, "문법"과 "화법"은 제외(not in)시킴 ▼▼▼
-    if "경제" in question_type or "사회" in question_type or ("법" in question_type and "문법" not in question_type and "화법" not in question_type):
-        messages.append("""### 📈 [심층 분석] 사회/경제/법: '인과 관계' 포착
+    # 2. [사전]
+    if "사전" in question_type:
+        messages.append("""### 📖 [심층 분석] 문법: 사전 정보 해석
 **1. 진단**
-환율, 금리, 법적 효력 등 변수의 관계(메커니즘)를 놓쳤습니다.
+품사 기호와 문형 정보 해석이 부족합니다.
 **2. Action Plan**
-1. 지문 여백에 `금리(↑) → 투자(↓)` 처럼 화살표 메모를 하세요.
-2. 법률 지문은 '원칙'과 '예외' 상황을 반드시 구분해야 합니다.""")
+1. 품사 기호(동사/형용사)를 먼저 확인하세요.
+2. 예문과 <보기>를 비교하세요.""")
 
-    if "과학" in question_type or "기술" in question_type or "건축" in question_type:
-        messages.append("""### ⚙️ [심층 분석] 과학/기술: '작동 원리' 시각화
-**1. 진단**
-장치의 구조(부품)와 작동 순서(프로세스)가 머릿속에서 꼬였습니다.
-**2. Action Plan**
-1. 지문을 읽으며 여백에 구조를 간단히 그려보세요.
-2. 작동 순서가 나오는 문장에 ①, ②, ③ 번호를 매기세요.""")
-
-    # 1-2. 문법/화작 영역
-    # 1. 음운 변동
+    # 3. [음운]
     if "음운" in question_type:
         messages.append("""### 🛑 [긴급 처방] 문법: 음운 변동
-
 **1. 진단**
 교체, 탈락, 첨가, 축약의 조건을 모릅니다.
-
 **2. Action Plan**
 1. 변동 조건을 백지에 써보세요.
 2. 발음 과정을 기호로 분석하세요.""")
-
-    # 2. 문장 구조 (핵심 수정: '사전'이나 '중세'가 없을 때만 나오게 함!)
-    # 기존: if "문장" or "문법" ... -> "문법(사전)"도 걸림 (문제 발생)
-    # 수정: "문장"이 있거나, ("문법"이 있고 AND "사전", "중세", "음운"이 아닐 때)
-    if "문장" in question_type or ("문법" in question_type and "음운" not in question_type and "사전" not in question_type and "중세" not in question_type):
-        messages.append("""### 🏗️ [심층 분석] 문법: 문장 구조
-
-**1. 진단**
-안긴문장과 주어-서술어 호응을 놓쳤습니다.
-
-**2. Action Plan**
-1. 서술어에 밑줄을 그으세요.
-2. 관형사형 어미를 찾으세요.""")
         
-    # 3. 중세 국어
+    # 4. [중세]
     if "중세" in question_type:
         messages.append("""### 📜 [심층 분석] 문법: 중세 국어
-
 **1. 진단**
 현대어 풀이와 짝짓기를 못했습니다.
-
 **2. Action Plan**
 1. 현대어 풀이와 일대일 대응하세요.""")
 
-    # 4. 사전 활용 (추가됨)
-    if "사전" in question_type:
-        messages.append("""### 📖 [심층 분석] 문법: 사전 정보 해석
-
+    # 5. [독서]
+    if "철학" in question_type or "인문" in question_type:
+        messages.append("""### 🧠 [심층 분석] 인문/철학: 관점 비교
 **1. 진단**
-품사 기호(동사/형용사)와 문형 정보를 놓쳤습니다.
-
+사상가(A vs B)의 관점 차이를 놓쳤습니다.
 **2. Action Plan**
-1. 품사 기호(동사/형용사)를 먼저 확인하세요.
-2. 필수 성분 정보([...에])를 체크하세요.""")
-        
-    if "강연" in question_type or "말하기" in question_type or "화법" in question_type:
-        messages.append("""### 🗣️ [심층 분석] 화법: 말하기 '전략' 파악
+1. 공통점/차이점 표를 그리세요.""")
+
+    if "경제" in question_type or "사회" in question_type or ("법" in question_type and "문법" not in question_type):
+        messages.append("""### 📈 [심층 분석] 사회/경제: 인과 관계
 **1. 진단**
-내용보다는 '어떻게(방식)' 전달했는지를 놓쳤습니다.
+변수의 비례/반비례 관계를 놓쳤습니다.
 **2. Action Plan**
-1. '질문을 통해', '자료를 제시하며' 같은 서술어를 찾으세요.
-2. 지문 속 `(웃으며)` 같은 비언어적 표현이 힌트입니다.""")
+1. 화살표 메모(`금리↑ → 투자↓`)를 하세요.""")
 
-    # 1-3. 문학 영역
-    if "소설" in question_type or "각본" in question_type or "서사" in question_type:
-        messages.append("""### 🎭 [심층 분석] 문학(산문): 인물 갈등 관계도
+    if "과학" in question_type or "기술" in question_type:
+        messages.append("""### ⚙️ [심층 분석] 과학/기술: 작동 원리
 **1. 진단**
-전체 줄거리와 인물 간의 갈등(편 가르기)을 놓쳤습니다.
+장치의 구조와 작동 순서가 꼬였습니다.
 **2. Action Plan**
-1. 긍정적 인물(O), 부정적 인물(X) 표시를 하세요.
-2. 장면이 전환되는 부분에서 사건을 요약하세요.""")
+1. 구조도를 간단히 그리세요.""")
 
-    # ▼▼▼ [추가 수정] "비문학"이라는 글자에 반응하지 않도록 조건 추가 ▼▼▼
-    if ("시가" in question_type or "시어" in question_type or "작품" in question_type or "문학" in question_type) and "비문학" not in question_type:
-        messages.append("""### 🌙 [심층 분석] 문학(운문): 상황과 정서 찾기
+    # 6. [문학]
+    if "소설" in question_type or "서사" in question_type:
+        messages.append("""### 🎭 [심층 분석] 문학(산문): 갈등 파악
 **1. 진단**
-객관적 상황(이별, 가난)보다 주관적 감상에 빠졌습니다.
+인물 간의 갈등 관계를 놓쳤습니다.
 **2. Action Plan**
-1. 감정 단어(슬픔, 외로움)에 형광펜을 칠하세요.
-2. 긍정 시어(+), 부정 시어(-)를 구분하며 읽으세요.""")
+1. 인물 관계도를 그리세요.""")
 
-    # =========================================================
-    # [2] 문제 유형별 피드백 (중복 적용 가능)
-    # =========================================================
-    
-    if "적용" in question_type or "보기" in question_type:
-        messages.append("""### 🔥 [고난도 꿀팁] <보기> 적용 문제 해결법
+    if "시가" in question_type or "시어" in question_type:
+        messages.append("""### 🌙 [심층 분석] 문학(운문): 상황/정서
 **1. 진단**
-지문의 원리와 <보기>의 사례를 연결(Mapping)하지 못했습니다.
+주관적 감상에 빠졌습니다.
 **2. Action Plan**
-1. <보기>의 구체적 사례를 지문의 핵심 용어로 바꿔서(치환) 읽으세요.
-2. 선지의 단어가 지문의 몇 번째 문단에 있는지 찾으세요.""")
+1. 긍정(+), 부정(-) 시어를 구분하세요.""")
 
-    # =========================================================
-    # [3] 최종 조합
-    # =========================================================
-    
+    # 7. [화법/작문]
+    if "화법" in question_type or "강연" in question_type:
+        messages.append("""### 🗣️ [심층 분석] 화법: 말하기 전략
+**1. 진단**
+'어떻게' 전달했는지를 놓쳤습니다.
+**2. Action Plan**
+1. 담화 표지어(첫째, 그러나)를 찾으세요.""")
+
+    # 8. [고난도]
+    if "보기" in question_type or "적용" in question_type:
+        messages.append("""### 🔥 [고난도 꿀팁] 보기 적용
+**1. 진단**
+지문 원리와 보기 사례 연결 실패.
+**2. Action Plan**
+1. 보기 사례를 지문 용어로 치환하세요.""")
+
+    # 기본값
     if not messages:
-        return """### ⚠️ [종합 진단] 기초 독해력 점검
+        messages.append("""### ⚠️ [종합 진단] 기초 독해력
 **1. 진단**
-기본적인 어휘력이나 사실적 독해 실수일 수 있습니다.
+어휘력 부족 또는 실수일 수 있습니다.
 **2. Action Plan**
-1. 정답보다 '오답이 왜 오답인지' 근거를 찾아보세요.
-2. 문제를 너무 급하게 풀지 않았는지 점검하세요."""
+1. 오답 근거를 스스로 찾아보세요.""")
     
-    return "\n\n---\n\n".join(messages)
+    return messages
 
 
 def get_strength_message(question_type):
