@@ -532,7 +532,7 @@ GRADE_ORDER = ["중 1학년", "중 2학년", "중 3학년", "고 1학년", "고 
 # =====================================================================
 with tab1:
     st.header("학년을 선택하세요")
-    
+    active_grades = [g for g in GRADE_ORDER if g in EXAM_DB]
     # active_grades 변수가 위에서 정의되어 있어야 합니다. 
     # 만약 정의되지 않았다면 이 줄 바로 위에 active_grades = [g for g in GRADE_ORDER if g in EXAM_DB] 추가 필요
     
