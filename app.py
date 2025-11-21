@@ -188,7 +188,7 @@ def create_portfolio_html(grade, name, total_count, avg_score, max_score, weakne
     </head>
     <body>
         <div class="paper">
-            <h1>📈 국어 학습 종합 분석 보고서</h1>
+            <h1>📈 사계국어 학습 종합 분석 보고서</h1>
             <div class="sub-title">수험자: {grade} <b>{name}</b> | 작성일: {now}</div>
             
             <div class="stats-container">
