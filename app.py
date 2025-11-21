@@ -174,33 +174,49 @@ def render_exam_page(grade):
         
         user_answers = {}
         
-        # [수정됨] OMR 스타일 입력을 위해 레이아웃 변경
-        # 라디오 버튼은 공간을 좀 차지하므로, 한 줄에 2문제씩 배치하는 게 가장 보기 좋습니다.
-        # (모바일에서는 자동으로 세로로 보입니다)
-        cols = st.columns(2) 
+        # [핵심 수정] 문제 리스트를 정렬해서 가져옵니다.
+        sorted_q_nums = sorted(current_exam_data.keys())
         
-        for i, q_num in enumerate(sorted(current_exam_data.keys())):
-            col_idx = i % 2
+        # 2개씩 짝지어서 반복문 돌리기 (Step 2)
+        # 이렇게 하면 [Row 1: 1번, 2번], [Row 2: 3번, 4번]... 순서로 생성됩니다.
+        for i in range(0, len(sorted_q_nums), 2):
+            # 매 반복마다 새로운 2단 컬럼(한 줄)을 만듭니다.
+            cols = st.columns(2)
+            
+            # --- 왼쪽 문제 (i번째) ---
+            q_num = sorted_q_nums[i]
             info = current_exam_data[q_num]
             
-            with cols[col_idx]:
-                # 문제 번호와 배점을 굵게 표시
+            with cols[0]:
                 st.markdown(f"**{q_num}번** <small>({info['score']}점)</small>", unsafe_allow_html=True)
-                
-                # st.radio로 OMR 선택지 구현 (1~5번)
-                # horizontal=True: 가로로 배치
-                # index=None: 기본 선택 안 함 (학생이 직접 골라야 함)
                 user_answers[q_num] = st.radio(
-                    label=f"{q_num}번 답안 선택", # 시각적으로는 숨기고 위 markdown으로 대체
+                    label=f"{q_num}번 답안",
                     options=[1, 2, 3, 4, 5],
                     horizontal=True,
-                    label_visibility="collapsed", # 라벨 숨김 (깔끔하게)
-                    index=None, # 처음엔 선택 안 된 상태
+                    label_visibility="collapsed",
+                    index=None,
                     key=f"q_{grade}_{selected_round}_{q_num}"
                 )
+                st.write("") # 간격 띄우기
+
+            # --- 오른쪽 문제 (i+1번째) ---
+            # 홀수 개일 경우 마지막 문제가 없을 수 있으므로 체크
+            if i + 1 < len(sorted_q_nums):
+                q_num_next = sorted_q_nums[i+1]
+                info_next = current_exam_data[q_num_next]
                 
-                st.write("") # 문제 사이 간격 살짝 띄우기
-        
+                with cols[1]:
+                    st.markdown(f"**{q_num_next}번** <small>({info_next['score']}점)</small>", unsafe_allow_html=True)
+                    user_answers[q_num_next] = st.radio(
+                        label=f"{q_num_next}번 답안",
+                        options=[1, 2, 3, 4, 5],
+                        horizontal=True,
+                        label_visibility="collapsed",
+                        index=None,
+                        key=f"q_{grade}_{selected_round}_{q_num_next}"
+                    )
+                    st.write("")
+
         st.markdown("---")
         submit = st.form_submit_button("답안 제출하기", use_container_width=True)
         
