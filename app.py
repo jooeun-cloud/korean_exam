@@ -15,12 +15,16 @@ with st.sidebar:
     if input_pw == ADMIN_PASSWORD:
         st.session_state['is_admin'] = True
         st.success("관리자 모드 ON ✅")
+        
         st.markdown("---")
         if st.button("🔄 문제 DB 새로고침"):
             st.cache_data.clear()
             st.rerun()
+            
     else:
         st.session_state['is_admin'] = False
+        if input_pw:
+            st.error("비밀번호 오류")
 
 is_admin = st.session_state.get('is_admin', False)
 
@@ -71,7 +75,8 @@ def create_report_html(grade, round_name, name, score, rank, total_students, wro
         for title, q_nums in wrong_data_map.items():
             nums_str = ", ".join([str(n) for n in q_nums]) + "번"
             
-            # title이 이미 피드백 제목이거나 유형이므로, 이를 통해 메시지를 가져오거나(람다) 직접 씀
+            # title이 이미 피드백 제목이거나 유형임.
+            # 람다 함수를 통해 본문을 가져오거나 처리
             msg = feedback_func(title)
             
             clean_msg = msg.strip().replace(">", "💡").replace("**", "").replace("-", "•").replace("\n", "<br>")
@@ -123,20 +128,20 @@ def create_report_html(grade, round_name, name, score, rank, total_students, wro
     </html>
     """
 
-# --- [3] 구글 시트 연결 (학생 답안용: 첫번째 시트 고정) ---
+# --- [3] 구글 시트 연결 (학생 답안용) ---
 def get_student_sheet():
     if "gcp_service_account" not in st.secrets: return None
     scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
     creds = ServiceAccountCredentials.from_json_keyfile_dict(dict(st.secrets["gcp_service_account"]), scope)
     client = gspread.authorize(creds)
     try:
-        # [핵심] 무조건 첫 번째 시트(Sheet1)를 엽니다.
+        # 무조건 첫 번째 시트(Sheet1)를 엽니다.
         return client.open("ExamResults").sheet1
     except Exception as e:
         st.error(f"시트 연결 오류: {e}")
         return None
 
-# --- [4] 피드백 함수 ---
+# --- [4] 피드백 함수 (리스트 반환형) ---
 def get_feedback_message_list(question_type):
     messages = []
     if "문법" in question_type or "문장" in question_type:
@@ -241,7 +246,7 @@ tab1, tab2, tab3 = st.tabs(["📝 시험 응시하기", "🔍 결과 조회", "�
 active_grades = [g for g in GRADE_ORDER if g in EXAM_DB]
 
 # =====================================================================
-# [탭 1] 시험 응시 (점수만 공개)
+# [탭 1] 시험 응시
 # =====================================================================
 with tab1:
     st.header("학년을 선택하세요")
@@ -286,7 +291,6 @@ with tab1:
                     if not nm or not sid:
                         st.error("이름과 학번을 입력하세요!")
                     else:
-                        # [수정] 통합 시트(Sheet1) 사용
                         sheet = get_student_sheet()
                         is_dup = False
                         if sheet:
@@ -334,7 +338,7 @@ with tab1:
                                 except Exception as e: st.error(f"저장 오류: {e}")
 
 # =====================================================================
-# [탭 2] 결과 조회
+# [탭 2] 결과 조회 (키 중복 방지 적용: res_)
 # =====================================================================
 with tab2:
     st.header("🔍 성적표 조회")
@@ -344,10 +348,11 @@ with tab2:
         def render_res(grade):
             rounds = list(EXAM_DB[grade].keys())
             c1,c2 = st.columns(2)
-            chk_rd = c1.selectbox("회차", rounds, key=f"r_{grade}")
-            chk_id = c2.text_input("학번", key=f"i_{grade}")
+            # [수정] Key에 res_ 접두사 추가
+            chk_rd = c1.selectbox("회차", rounds, key=f"res_r_{grade}")
+            chk_id = c2.text_input("학번", key=f"res_i_{grade}")
             
-            if st.button("조회", key=f"b_{grade}"):
+            if st.button("조회", key=f"res_b_{grade}"):
                 sheet = get_student_sheet()
                 if sheet:
                     try:
@@ -401,7 +406,7 @@ with tab2:
                                             if q not in feedback_group[msg]: feedback_group[msg].append(q)
                                 
                                 if feedback_group:
-                                    st.write("### 💡 유형별 피드백")
+                                    st.write("### 💡 유형별 상세 피드백")
                                     for msg, nums in feedback_group.items():
                                         nums.sort()
                                         n_txt = ", ".join(map(str, nums))
@@ -421,7 +426,7 @@ with tab2:
                                 rpt = create_report_html(grade, chk_rd, last_row['Name'], last_row['Score'], rank, total, report_map, lambda x: title_to_msg.get(x,""))
                                 st.download_button("📥 다운로드", rpt, file_name="report.html", mime="text/html", key=f"d_{grade}_{chk_id}")
                             else:
-                                st.warning("🔒 선생님만 볼 수 있습니다.")
+                                st.warning("🔒 상세 분석과 성적표는 선생님만 볼 수 있습니다.")
                         else: st.error("기록 없음")
                     except Exception as e: st.error(f"오류: {e}")
         
