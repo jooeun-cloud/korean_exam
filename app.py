@@ -291,12 +291,12 @@ def get_feedback_message_list(question_type):
 **2. Action Plan**
 1. 공통점/차이점 표를 그리세요.""")
 
-    if "경제" in question_type or "사회" in question_type or ("법" in question_type and "문법" not in question_type):
+    if "경제" in question_type or "사회" in question_type or ("법" in question_type and "문법" not in question_type and "화법" not in question_type):
         messages.append("""### 📈 [심층 분석] 사회/경제: 인과 관계
 **1. 진단**
-변수의 비례/반비례 관계를 놓쳤습니다.
+환율, 금리 등 변수의 비례/반비례 관계를 놓쳤습니다.
 **2. Action Plan**
-1. 화살표 메모(`금리↑ → 투자↓`)를 하세요.""")
+1. 지문 여백에 화살표 메모(`금리↑ → 투자↓`)를 하세요.""")
 
     if "과학" in question_type or "기술" in question_type:
         messages.append("""### ⚙️ [심층 분석] 과학/기술: 작동 원리
