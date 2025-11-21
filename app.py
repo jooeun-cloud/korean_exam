@@ -140,7 +140,7 @@ def get_feedback_message(question_type):
 **2. Action Plan**
 1. '질문을 통해', '자료를 제시하며' 같은 서술어 찾기.
 2. (웃으며) 같은 비언어적 표현 체크하기."""
-    if "음운" in question_type:
+    if "음운" in question_type or "매체" in question_type:
         return """### 🛑 [긴급 처방] 문법: '음운 변동'의 원리를 놓치고 있습니다.
         
 **1. 진단**
@@ -158,7 +158,7 @@ def get_feedback_message(question_type):
 **2. Action Plan**
 1. 모든 문장의 **서술어**에 밑줄을 그으세요.
 2. 그 서술어의 주어를 찾아 연결하세요."""
-    if "국어사" in question_type:
+    if "국어사" in question_type or "중세 국어" in question_type:
         return """### 📜 [심층 분석] 문법: 중세 국어는 '다른 그림 찾기'입니다.
         
 **1. 진단**
