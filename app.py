@@ -723,9 +723,9 @@ with tab2:
                         except Exception as e:
                             st.error(f"오류 발생: {e}")
                             
-        for i, grade in enumerate(active_grades):
-            with result_tabs[i]:
-                render_result_page(grade)
+            for i, grade in enumerate(active_grades):
+                with result_tabs[i]:
+                    render_result_page(grade)
 
 
 
