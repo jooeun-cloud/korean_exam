@@ -549,7 +549,9 @@ with tab2:
             with res_tabs[i]: render_res(g)
 
 # [탭 3] 종합 기록부
-# [탭 3] 종합 기록부
+# =====================================================================
+# [탭 3] 종합 기록부 (포트폴리오)
+# =====================================================================
 with tab3:
     st.header("📈 포트폴리오")
     if not is_admin:
@@ -567,72 +569,93 @@ with tab3:
                     df = pd.DataFrame(recs)
                     df['Grade'] = df['Grade'].astype(str).str.strip()
                     df['ID'] = df['ID'].astype(str)
+
                     def norm(v):
-                        try: return str(int(v))
-                        except: return str(v).strip()
+                        try:
+                            return str(int(v))
+                        except:
+                            return str(v).strip()
+
                     df['ID_Clean'] = df['ID'].apply(norm)
                     in_id = norm(pid)
                     
-                    my_hist = df[(df['Grade']==str(pg)) & (df['ID_Clean']==in_id)]
+                    my_hist = df[(df['Grade'] == str(pg)) & (df['ID_Clean'] == in_id)]
                     
                     if not my_hist.empty:
                         sname = my_hist.iloc[-1]['Name']
                         st.success(f"**{pg} {sname}**님의 성장 기록")
-                        chart = alt.Chart(my_hist).mark_line(point=True).encode(x='Round', y='Score')
+                        chart = alt.Chart(my_hist).mark_line(point=True).encode(
+                            x='Round',
+                            y='Score'
+                        )
                         st.altair_chart(chart, use_container_width=True)
                         
                         st.markdown("---")
                         st.write("### 2️⃣ 누적 취약점 분석 (TOP 3)")
+
+                        # 1) 누적 오답 유형 전부 모으기
                         all_w = []
-                        for i, r in my_hist.iterrows():
+                        for _, r in my_hist.iterrows():
                             if str(r['Wrong_Types']).strip():
                                 all_w.extend(str(r['Wrong_Types']).split(" | "))
-                        
-                        # 🔹 여기서부터 살짝 수정
+
                         from collections import Counter
-                        cnt = []
-                        if all_w:
-                            cnt = Counter(all_w).most_common()
+                        cnt = Counter(all_w).most_common() if all_w else []
+
+                        # ✅ 다운로드/리포트에 쓸 선택된(중복 제거된) 유형 목록
+                        selected_stats = []          # [(유형명, 횟수), ...]
+                        feedback_for_selected = {}   # {유형명: 피드백 마크다운}
+
+                        if cnt:
+                            # 왼쪽: 많이 틀린 유형 TOP3 (그냥 빈도 기준, 그대로 유지)
                             c_l, c_r = st.columns([1, 1.5])
                             with c_l:
                                 st.write("📉 **많이 틀린 유형**")
-                                for i, (t, c) in enumerate(cnt[:3]):
-                                    st.write(f"{i+1}위: **{t}** ({c}회)")
+                                for i_rank, (t, c_val) in enumerate(cnt[:3]):
+                                    st.write(f"{i_rank+1}위: **{t}** ({c_val}회)")
+
+                            # 오른쪽: 맞춤 처방 (💡내용이 같은 피드백은 한 번만)
                             with c_r:
                                 st.info("💡 **맞춤 처방**")
-                                # 리포트 생성을 위해 TOP3 피드백을 모아둠
-                                feedback_for_top3 = {}
+                                seen_msgs = set()
                                 shown = 0
-                                for i, (t, c) in enumerate(cnt):
-                                    if shown >= 3:
+                                for t, c_val in cnt:
+                                    if shown >= 3:      # 최대 3개까지만 보여줌
                                         break
                                     msgs = get_feedback_message_list(t)
-                                    full = "\n\n---\n\n".join(msgs)
-                                    feedback_for_top3[t] = full
-                                    with st.expander(f"{t} 처방전", expanded=(shown==0)):
+                                    full = "\n\n---\n\n".join(msgs)   # 한 유형에 대한 전체 피드백
+
+                                    # ❗내용이 완전히 같은 피드백이면 스킵
+                                    if full in seen_msgs:
+                                        continue
+
+                                    seen_msgs.add(full)
+                                    selected_stats.append((t, c_val))
+                                    feedback_for_selected[t] = full
+
+                                    with st.expander(f"{t} 처방전", expanded=(shown == 0)):
                                         st.markdown(full)
                                     shown += 1
                         else:
-                            cnt = []
-                            feedback_for_top3 = {}
                             st.info("✅ 누적 취약 유형이 거의 없습니다.")
-                        
+
+                        # 기록 표
                         st.dataframe(my_hist[['Round', 'Score', 'Wrong_Types']])
-                        
-                        # 🔻🔻🔻 여기부터가 새로 추가되는 부분 🔻🔻🔻
+
+                        # -----------------------------
+                        # 💾 포트폴리오 리포트 다운로드
+                        #    (화면에 보인 '중복 제거된' 피드백 기준)
+                        # -----------------------------
                         st.markdown("---")
                         st.write("### 💾 이 포트폴리오 화면을 리포트(HTML)로 저장하기")
 
-                        # TOP3 데이터가 있을 때만 리포트 생성
-                        if cnt:
-                            # TOP3만 잘라서 전달
-                            top3_stats = cnt[:3]
+                        if selected_stats:
                             html_report = create_portfolio_html(
                                 grade=pg,
                                 name=sname,
                                 my_hist_df=my_hist[['Round', 'Score', 'Wrong_Types']],
-                                weakness_stats=top3_stats,
-                                feedback_markdown_map=feedback_for_top3
+                                weakness_stats=selected_stats,            # 중복 제거된 타입들
+                                feedback_markdown_map=feedback_for_selected
                             )
 
                             st.download_button(
@@ -643,9 +666,7 @@ with tab3:
                                 key=f"dl_port_{pg}_{in_id}"
                             )
                         else:
-                            st.info("현재 누적 취약 유형 데이터가 없어 리포트 다운로드는 생략됩니다.")
-                        # 🔺🔺🔺 새 코드 끝 🔺🔺🔺
-
+                            st.info("현재 리포트로 저장할 취약 유형 데이터가 없습니다.")
                     else:
                         st.warning("기록 없음")
                 except Exception as e:
