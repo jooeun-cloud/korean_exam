@@ -448,7 +448,104 @@ TLCD의 구조와 작동 원리를 글로만 읽고, **‘흔들림 → 액체 �
 2. 작품 속 장면을 한 줄로 요약한 뒤, 그 상황과 가장 잘 어울리는 성어를 고르는 연습을 여러 작품에 걸쳐 반복시키세요.  
 3. 성어 문제를 풀 때는 단어 뜻만 보지 말고, **‘누가 누구에게 무엇을 해서 어떤 꼴이 되었는가’**를 기준으로 판단하도록 지도하세요."""
 }
+def create_report_html(grade, round_name, name, score, rank, total_students, wrong_data_map, feedback_func):
+    from datetime import datetime
 
+    now = datetime.now().strftime("%Y년 %m월 %d일 %H시 %M분")
+    has_wrong = bool(wrong_data_map)
+    feedback_section_html = ""
+
+    if has_wrong:
+        for title, q_nums in wrong_data_map.items():
+            nums_str = ", ".join([str(n) for n in sorted(q_nums)]) + "번"
+
+            msg = feedback_func(title)   # 해당 유형의 피드백 가져오기
+            clean_msg = msg.strip().replace(">", "💡").replace("**", "").replace("-", "•").replace("\n", "<br>")
+
+            # 제목과 본문 분리
+            if clean_msg.startswith("###"):
+                parts = clean_msg.split("<br>", 1)
+                title_txt = parts[0].replace("###", "").strip()
+                body_txt = parts[1] if len(parts) > 1 else ""
+                feedback_section_html += f"""
+                <div class='feedback-card'>
+                    <div class='card-header'>
+                        <span class='card-title'>{title_txt}</span>
+                        <span class='card-nums'>❌ 틀린 번호: {nums_str}</span>
+                    </div>
+                    <div class='card-body'>{body_txt}</div>
+                </div>
+                """
+            else:
+                feedback_section_html += f"""
+                <div class='feedback-card'>
+                    <div class='card-header'>
+                        <span class='card-title'>{title}</span>
+                        <span class='card-nums'>❌ 틀린 번호: {nums_str}</span>
+                    </div>
+                    <div class='card-body'>{clean_msg}</div>
+                </div>
+                """
+
+    else:
+        feedback_section_html = """
+        <div class='feedback-card' style='border-color:#4CAF50; background:#E8F5E9;'>
+            <h3 style='color:#2E7D32; margin:0;'>🎉 완벽합니다!</h3>
+            <p style='margin:10px 0 0 0;'>약점이 없습니다.</p>
+        </div>
+        """
+
+    return f"""
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>{name} 성적표</title>
+    <style>
+        body {{ font-family: 'Malgun Gothic', sans-serif; padding: 20px; color: #333; }}
+        .paper {{ max-width: 800px; margin: 0 auto; border: 2px solid #444; padding: 40px; }}
+        h1 {{ text-align: center; border-bottom: 3px solid #444; padding-bottom: 20px; margin-bottom: 30px; }}
+        .info-table {{ width: 100%; border-collapse: collapse; margin-bottom: 30px; }}
+        .info-table th {{ background-color: #f4f4f4; border: 1px solid #999; padding: 12px; width: 20%; font-weight: bold; }}
+        .info-table td {{ border: 1px solid #999; padding: 12px; text-align: center; }}
+        .score {{ font-size: 36px; font-weight: bold; color: #D32F2F; }}
+        .feedback-card {{ border: 1px solid #999; margin-bottom: 20px; page-break-inside: avoid; }}
+        .card-header {{ background-color: #eee; padding: 10px 15px; border-bottom: 1px solid #ccc; display: flex; justify-content: space-between; align-items: center; }}
+        .card-title {{ font-size: 16px; font-weight: bold; }}
+        .card-nums {{ font-size: 14px; color: #D32F2F; font-weight: bold; background: white; padding: 3px 8px; border-radius: 5px; border: 1px solid #ddd; }}
+        .card-body {{ padding: 15px; font-size: 13px; line-height: 1.6; }}
+        .footer {{ text-align: center; margin-top: 50px; font-size: 12px; color: #888; }}
+    </style>
+</head>
+<body>
+    <div class="paper">
+        <h1>📑 {grade} {round_name} 분석 성적표</h1>
+
+        <table class="info-table">
+            <tr>
+                <th>이 름</th><td>{name}</td>
+                <th>응시일</th><td>{now}</td>
+            </tr>
+            <tr>
+                <th>점 수</th><td><span class="score">{int(score)}</span> 점</td>
+                <th>등 수</th><td>{rank}등 / {total_students}명</td>
+            </tr>
+        </table>
+
+        <h3 style="border-bottom: 2px solid #ddd; padding-bottom: 10px;">
+            💊 유형별 오답 분석 및 처방
+        </h3>
+
+        {feedback_section_html}
+
+        <div class="footer">
+            위 학생의 모의고사 결과를 증명합니다.<br>
+            Designed by AI Teacher
+        </div>
+    </div>
+</body>
+</html>
+"""
 def get_feedback_message_list(question_type, use_general=True):
     messages = []
     q = str(question_type).strip()
