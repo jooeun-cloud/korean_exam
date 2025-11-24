@@ -1,4 +1,6 @@
 import streamlit as st
+if st.session_state.get("_rerun"):
+    st.session_state["_rerun"] = False
 import pandas as pd
 from datetime import datetime
 import gspread
@@ -83,14 +85,14 @@ with st.sidebar:
 
         st.markdown("---")
         if st.button("🔄 문제 DB 새로고침"):
-            st.cache_data.clear()
-            st.rerun()
-
-        if st.button("로그아웃"):
-            for k in ["is_authenticated", "admin_id", "is_superadmin"]:
-                st.session_state.pop(k, None)
-            st.rerun()
-
+    st.cache_data.clear()
+    st.session_state["_rerun"] = True
+    st.stop()
+    if st.button("로그아웃"):
+        for k in ["is_authenticated", "admin_id", "is_superadmin"]:
+            st.session_state.pop(k, None)
+        st.session_state["_rerun"] = True
+        st.stop()
 
 # 로그인 안 되어 있으면 앱 중단
 if not st.session_state.get("is_authenticated", False):
