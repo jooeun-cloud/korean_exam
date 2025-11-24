@@ -182,62 +182,65 @@ for t, _ in weakness_stats:
         <div class="card-body">{html_body}</div>
     </div>
     """
-    <!DOCTYPE html>
-    <html lang="ko">
-    <head>
-        <meta charset="UTF-8">
-        <title>{grade} {name} 포트폴리오 리포트</title>
-        <style>
-            body {{ font-family: 'Malgun Gothic', sans-serif; padding: 20px; color: #333; }}
-            h1 {{ text-align: center; border-bottom: 3px solid #444; padding-bottom: 20px; margin-bottom: 30px; }}
-            h2 {{ margin-top: 30px; border-bottom: 2px solid #999; padding-bottom: 8px; }}
-            table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
-            th, td {{ border: 1px solid #999; padding: 8px; text-align: center; font-size: 13px; }}
-            th {{ background-color: #f4f4f4; }}
-            .feedback-card {{ border: 1px solid #999; margin-top: 15px; page-break-inside: avoid; }}
-            .card-header {{ background-color: #eee; padding: 8px 12px; border-bottom: 1px solid #ccc; }}
-            .card-title {{ font-weight: bold; }}
-            .card-body {{ padding: 12px; font-size: 13px; line-height: 1.6; }}
-            .meta {{ font-size: 12px; color: #666; text-align:right; margin-bottom: 10px; }}
-        </style>
-    </head>
-    <body>
-        <h1>📈 {grade} {name} 포트폴리오 리포트</h1>
-        <div class="meta">생성 시각: {now}</div>
 
-        <h2>1️⃣ 응시 기록 요약</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>회차</th>
-                    <th>점수</th>
-                    <th>오답 유형</th>
-                </tr>
-            </thead>
-            <tbody>
-                {history_rows}
-            </tbody>
-        </table>
+# ✅ 여기부터가 중요 (반드시 for문 밖)
+return f"""
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>{grade} {name} 포트폴리오 리포트</title>
+    <style>
+        body {{ font-family: 'Malgun Gothic', sans-serif; padding: 20px; color: #333; }}
+        h1 {{ text-align: center; border-bottom: 3px solid #444; padding-bottom: 20px; margin-bottom: 30px; }}
+        h2 {{ margin-top: 30px; border-bottom: 2px solid #999; padding-bottom: 8px; }}
+        table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
+        th, td {{ border: 1px solid #999; padding: 8px; text-align: center; font-size: 13px; }}
+        th {{ background-color: #f4f4f4; }}
+        .feedback-card {{ border: 1px solid #999; margin-top: 15px; page-break-inside: avoid; }}
+        .card-header {{ background-color: #eee; padding: 8px 12px; border-bottom: 1px solid #ccc; }}
+        .card-title {{ font-weight: bold; }}
+        .card-body {{ padding: 12px; font-size: 13px; line-height: 1.6; }}
+        .meta {{ font-size: 12px; color: #666; text-align:right; margin-bottom: 10px; }}
+    </style>
+</head>
+<body>
+    <h1>📈 {grade} {name} 포트폴리오 리포트</h1>
+    <div class="meta">생성 시각: {now}</div>
 
-        <h2>2️⃣ 누적 취약 유형 TOP3</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>유형</th>
-                    <th>누적 오답 횟수</th>
-                </tr>
-            </thead>
-            <tbody>
-                {weakness_rows}
-            </tbody>
-        </table>
+    <h2>1️⃣ 응시 기록 요약</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>회차</th>
+                <th>점수</th>
+                <th>오답 유형</th>
+            </tr>
+        </thead>
+        <tbody>
+            {history_rows}
+        </tbody>
+    </table>
 
-        <h2>3️⃣ 유형별 맞춤 처방</h2>
-        {feedback_sections}
-    </body>
-    </html>
-    """
+    <h2>2️⃣ 누적 취약 유형 TOP3</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>유형</th>
+                <th>누적 오답 횟수</th>
+            </tr>
+        </thead>
+        <tbody>
+            {weakness_rows}
+        </tbody>
+    </table>
 
+    <h2>3️⃣ 유형별 맞춤 처방</h2>
+    {feedback_sections}
+
+</body>
+</html>
+"""
 
 # --- [3] 구글 시트 연결 (학생 답안용) ---
 def get_student_sheet():
