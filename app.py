@@ -998,7 +998,15 @@ with tab3:
         df["ID"] = df["ID"].astype(str).str.strip()
         df["Grade"] = df["Grade"].astype(str).str.strip()
 
-        my_hist = df[(df["Grade"] == pg) & (df["ID"] == pid)]
+        def norm_id(v):
+            try:
+                return str(int(str(v)))
+            except:
+                return str(v).strip()
+        df["ID_Clean"]=df["ID"].apply(norm_id)
+        in_pid=norm_id(pid)
+
+        my_hist = df[(df["Grade"] == pg) & (df["ID_Clean"] == in_pid)]
 
         if my_hist.empty:
             st.warning("기록 없음")
