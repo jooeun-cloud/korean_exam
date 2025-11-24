@@ -1,6 +1,4 @@
 import streamlit as st
-if st.session_state.get("_rerun"):
-    st.session_state["_rerun"] = False
 import pandas as pd
 from datetime import datetime
 import gspread
@@ -56,6 +54,7 @@ ADMINS = load_admins()
 with st.sidebar:
     st.header("🔐 관리자 로그인")
 
+    # 세션 기본값 설정
     if "is_authenticated" not in st.session_state:
         st.session_state["is_authenticated"] = False
         st.session_state["admin_id"] = None
@@ -72,11 +71,8 @@ with st.sidebar:
                 st.session_state["is_authenticated"] = True
                 st.session_state["admin_id"] = admin_id_input
                 st.session_state["is_superadmin"] = (admin_info["role"] == "superadmin")
-
                 st.success(f"✅ {admin_id_input} 로그인 성공")
-                # 🔁 강제 새로고침 대체
-                st.session_state["_rerun"] = True
-                st.stop()
+                # 🔁 별도의 rerun 필요 없음 (Streamlit이 자동으로 재실행함)
             else:
                 st.error("❌ ID 또는 비밀번호가 올바르지 않습니다.")
     else:
@@ -85,18 +81,15 @@ with st.sidebar:
         st.caption(f"권한 : {role_label}")
 
         st.markdown("---")
-
         if st.button("🔄 문제 DB 새로고침"):
             st.cache_data.clear()
-            st.session_state["_rerun"] = True
-            st.stop()
+            st.success("문제 DB 캐시를 초기화했습니다. (다음 화면부터 반영됩니다)")
 
         if st.button("로그아웃"):
             for k in ["is_authenticated", "admin_id", "is_superadmin"]:
                 st.session_state.pop(k, None)
-            st.session_state["_rerun"] = True
-            st.stop()
-# 로그인 안 되어 있으면 앱 중단
+            st.success("로그아웃 되었습니다.")
+            # 로그인 안 되어 있으면 앱 중단
 if not st.session_state.get("is_authenticated", False):
     st.warning("이 시스템은 관리자 전용입니다. 왼쪽에서 로그인해 주세요.")
     st.stop()
