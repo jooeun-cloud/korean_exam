@@ -1025,6 +1025,9 @@ with tab3:
         seen_msgs = set()  # 피드백 전체 문자열 기준 중복 체크
 
         for t, c in cnt:
+            msgs = get_feedback_message_list(t, use_general=False)
+            if not msgs:
+                msgs = get_feedback_message_list(t, use_general=True)
             # 타입 t에 대한 피드백(여러 개일 수 있으므로 join)
             full_md = "\n".join(get_feedback_message_list(t))
 
@@ -1054,6 +1057,9 @@ with tab3:
             with c_right:
                 st.info("💡 유형별 상세 피드백")
                 for idx, (t, c) in enumerate(selected):
+                    msgs = get_feedback_message_list(t, use_general=False)
+                    if not msgs:
+                        msgs = get_feedback_message_list(t, use_general=True)
                     full_md = "\n".join(get_feedback_message_list(t))
                     feedback_map[t] = full_md
                     display_title = str(t).replace("(", ": ").replace(")", "")
