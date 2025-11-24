@@ -961,33 +961,43 @@ with tab2:
 # [탭 3] 포트폴리오
 # ==================================================
 with tab3:
-    st.header("포트폴리오")
+    st.header("📈 포트폴리오")
+
+    # ===============================
+    # 상태 변수 설정
+    # ===============================
+    if "show_portfolio" not in st.session_state:
+        st.session_state["show_portfolio"] = False
 
     # 학년 / 학번 입력
-    pg = st.selectbox("학년", active_grades)
-    pid = st.text_input("학번")
+    pg = st.selectbox("학년", active_grades, key="port_grade")
+    pid = st.text_input("학번", key="port_id")
 
-    if st.button("분석"):
+    if st.button("분석", key="port_btn"):
+        st.session_state["show_portfolio"] = True
+
+    # =====================================================
+    # 👇 여기부터 실제 분석 화면 (버튼 눌리면 계속 유지됨)
+    # =====================================================
+    if st.session_state.get("show_portfolio"):
 
         sheet = get_student_sheet()
         if not sheet:
             st.error("시트 오류")
             st.stop()
 
-        # 전체 기록 불러오기
         df = pd.DataFrame(sheet.get_all_records())
 
-        # AdminID 컬럼이 없을 수도 있으니 안전하게 처리
+        # AdminID 컬럼 보정
         df["AdminID"] = df.get("AdminID", "").astype(str)
 
-        # 최종관리자가 아니면, 자신의 AdminID로만 필터
+        # 최종관리자가 아닌 경우 자신의 데이터만 조회
         if not is_superadmin:
             df = df[df["AdminID"] == current_admin]
 
         df["ID"] = df["ID"].astype(str).str.strip()
         df["Grade"] = df["Grade"].astype(str).str.strip()
 
-        # 해당 학생의 기록만 추출
         my_hist = df[(df["Grade"] == pg) & (df["ID"] == pid)]
 
         if my_hist.empty:
@@ -995,40 +1005,38 @@ with tab3:
             st.stop()
 
         name = my_hist.iloc[-1]["Name"]
-
         st.success(f"{pg} {name} 성장 기록")
 
-        # 점수 추이 차트
+        # ===============================
+        # 1. 점수 변화 그래프
+        # ===============================
         chart = alt.Chart(my_hist).mark_line(point=True).encode(
             x="Round",
             y="Score"
         )
         st.altair_chart(chart, use_container_width=True)
 
-        # -----------------------------
-        # 1) 누적 오답 유형 집계
-        # -----------------------------
+        # ===============================
+        # 2. 누적 오답 유형 분석
+        # ===============================
+        from collections import Counter
+
         all_wrong = []
         for _, r in my_hist.iterrows():
             wt = str(r.get("Wrong_Types", "")).strip()
             if wt:
                 all_wrong += wt.split(" | ")
 
-        from collections import Counter
         cnt = Counter(all_wrong).most_common() if all_wrong else []
 
-        # -----------------------------
-        # 2) 피드백 내용 기준으로 중복 제거된 TOP3 선택
-        #    (같은 내용의 피드백이면 한 번만)
-        # -----------------------------
-        selected = []      # [(유형명, 횟수), ...]
-        seen_msgs = set()  # 피드백 전체 문자열 기준 중복 체크
+        selected = []
+        seen_msgs = set()
 
         for t, c in cnt:
             msgs = get_feedback_message_list(t, use_general=False)
             if not msgs:
                 msgs = get_feedback_message_list(t, use_general=True)
-            # 타입 t에 대한 피드백(여러 개일 수 있으므로 join)
+
             full_md = "\n".join(msgs)
 
             if full_md in seen_msgs:
@@ -1040,19 +1048,17 @@ with tab3:
             if len(selected) >= 3:
                 break
 
-        st.markdown("### 취약 유형 (피드백 기준 TOP3)")
+        st.markdown("## 🔎 취약 유형 (피드백 기준 TOP 3)")
 
-        feedback_map = {}  # {유형명: 피드백_마크다운}
+        feedback_map = {}
 
         if selected:
-            # 왼쪽: 유형 + 횟수, 오른쪽: 상세 피드백
             c_left, c_right = st.columns([1, 1.5])
 
             with c_left:
                 for t, c in selected:
-                    # 보기 좋게 "화법(말하기 전략)" → "화법: 말하기 전략"
                     display_title = str(t).replace("(", ": ").replace(")", "")
-                    st.write(f"- **{display_title}** ({c}회)")
+                    st.write(f"📌 **{display_title}** ({c}회)")
 
             with c_right:
                 st.info("💡 유형별 상세 피드백")
@@ -1060,23 +1066,23 @@ with tab3:
                     msgs = get_feedback_message_list(t, use_general=False)
                     if not msgs:
                         msgs = get_feedback_message_list(t, use_general=True)
+
                     full_md = "\n".join(msgs)
                     feedback_map[t] = full_md
+
                     display_title = str(t).replace("(", ": ").replace(")", "")
                     with st.expander(f"{display_title} 처방전", expanded=(idx == 0)):
                         st.markdown(full_md)
-
         else:
-            st.info("✅ 누적 취약 유형이 거의 없습니다.")
+            st.success("✅ 누적 취약 유형이 거의 없습니다.")
 
-        # -----------------------------
-        # 3) 포트폴리오 HTML 리포트 다운로드
-        # -----------------------------
+        # ===============================
+        # 3. 포트폴리오 HTML 다운로드
+        # ===============================
         st.markdown("---")
-        st.write("### 📥 포트폴리오 리포트 다운로드")
+        st.subheader("📥 포트폴리오 리포트 다운로드")
 
         if selected:
-            # create_portfolio_html 사용 (미리 정의해 둔 함수)
             html_report = create_portfolio_html(
                 grade=pg,
                 name=name,
@@ -1084,11 +1090,10 @@ with tab3:
                 weakness_stats=selected,
                 feedback_markdown_map=feedback_map
             )
-
             html_bytes = html_report.encode("utf-8")
 
             st.download_button(
-                "📥 포트폴리오 다운로드",
+                "📥 포트폴리오 다운로드 (HTML)",
                 html_bytes,
                 file_name=f"{name}_portfolio.html",
                 mime="text/html; charset=utf-8",
@@ -1096,61 +1101,35 @@ with tab3:
             )
         else:
             st.info("저장할 취약 유형 데이터가 없습니다.")
-        # --------------------------------
-        # 4) (최고관리자 전용) 관리자별 입력 현황
-        # --------------------------------
+
+        # ===============================
+        # 4. 최고관리자 전용: 관리자별 입력 현황
+        # ===============================
         if is_superadmin:
             st.markdown("---")
             st.subheader("👀 관리자별 입력 현황 (최고관리자 전용)")
-    
-            sheet2 = get_student_sheet()
-            if not sheet2:
-                st.error("시트 오류")
+
+            df_all = pd.DataFrame(sheet.get_all_records())
+
+            if "AdminID" not in df_all.columns:
+                st.warning("AdminID 컬럼이 없습니다.")
             else:
-                df_all = pd.DataFrame(sheet2.get_all_records())
-    
-                if "AdminID" not in df_all.columns:
-                    st.info("⚠ AdminID 컬럼이 없어 관리자별 집계를 할 수 없습니다.")
-                else:
-                    # 문자열 정리
-                    df_all["AdminID"] = df_all["AdminID"].astype(str).str.strip()
-                    df_all["Grade"] = df_all["Grade"].astype(str).str.strip()
-                    df_all["ID"] = df_all["ID"].astype(str).str.strip()
-                    df_all["Name"] = df_all["Name"].astype(str).str.strip()
-                    df_all["Round"] = df_all["Round"].astype(str).str.strip()
-    
-                    # 날짜 컬럼 이름이 Date인지 Timestamp인지 애매할 수 있으니 처리
-                    date_col = None
-                    for cand in ["Date", "Timestamp", "CreatedAt"]:
-                        if cand in df_all.columns:
-                            date_col = cand
-                            break
-    
-                    # 관리자별 · 학생별 집계
-                    group_cols = ["AdminID", "Grade", "ID", "Name"]
-                    agg_dict = {"Round": "nunique"}
-                    if date_col:
-                        agg_dict[date_col] = "max"
-    
-                    summary = df_all.groupby(group_cols).agg(agg_dict).reset_index()
-                    summary = summary.rename(columns={
-                        "Round": "응시회차수"
-                    })
-                    if date_col:
-                        summary = summary.rename(columns={date_col: "최근응시일"})
-    
-                    # 관리자 선택
-                    admin_list = sorted(summary["AdminID"].unique())
-                    sel_admin = st.selectbox("관리자 선택", admin_list, key="admin_summary_sel")
-    
-                    view = summary[summary["AdminID"] == sel_admin].copy()
-                    view = view.sort_values(["Grade", "ID"])
-    
-                    st.write(f"**{sel_admin}** 관리자가 입력한 학생 수: **{view.shape[0]}명**")
-    
-                    st.dataframe(
-                        view[
-                            ["Grade", "ID", "Name", "응시회차수"]
-                            + (["최근응시일"] if "최근응시일" in view.columns else [])
-                        ]
-                    )
+                df_all["AdminID"] = df_all["AdminID"].astype(str).str.strip()
+                df_all["ID"] = df_all["ID"].astype(str).str.strip()
+                df_all["Name"] = df_all["Name"].astype(str).str.strip()
+                df_all["Grade"] = df_all["Grade"].astype(str).str.strip()
+
+                group = df_all.groupby(["AdminID", "Grade", "ID", "Name"]).size().reset_index(name="응시횟수")
+
+                admin_list = sorted(group["AdminID"].unique())
+
+                sel_admin = st.selectbox(
+                    "관리자 선택",
+                    admin_list,
+                    key="admin_summary_selector"
+                )
+
+                view = group[group["AdminID"] == sel_admin].sort_values(["Grade", "ID"])
+
+                st.write(f"✔ {sel_admin} 관리자가 입력한 학생 수: {view.shape[0]}명")
+                st.dataframe(view[["Grade", "ID", "Name", "응시횟수"]])
