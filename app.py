@@ -548,7 +548,6 @@ with tab2:
         for i, g in enumerate(active_grades):
             with res_tabs[i]: render_res(g)
 
-# [탭 3] 종합 기록부
 # =====================================================================
 # [탭 3] 종합 기록부 (포트폴리오)
 # =====================================================================
@@ -593,7 +592,7 @@ with tab3:
                         st.markdown("---")
                         st.write("### 2️⃣ 누적 취약점 분석 (TOP 3)")
 
-                        # 1) 누적 오답 유형 전부 모으기
+                        # 1) 모든 오답 유형 모으기
                         all_w = []
                         for _, r in my_hist.iterrows():
                             if str(r['Wrong_Types']).strip():
@@ -602,40 +601,44 @@ with tab3:
                         from collections import Counter
                         cnt = Counter(all_w).most_common() if all_w else []
 
-                        # ✅ 다운로드/리포트에 쓸 선택된(중복 제거된) 유형 목록
-                        selected_stats = []          # [(유형명, 횟수), ...]
+                        # ✅ 피드백 내용 기준으로 중복 제거된 TOP3 선택
+                        selected_stats = []          # [(유형명, 횟수), ...]  ← 피드백이 서로 다른 것만
                         feedback_for_selected = {}   # {유형명: 피드백 마크다운}
+                        seen_msgs = set()
 
                         if cnt:
-                            # 왼쪽: 많이 틀린 유형 TOP3 (그냥 빈도 기준, 그대로 유지)
+                            for t, c_val in cnt:
+                                msgs = get_feedback_message_list(t)
+                                full = "\n\n---\n\n".join(msgs)  # 이 유형의 전체 피드백
+
+                                # 이미 같은 내용의 피드백이 있었으면 스킵
+                                if full in seen_msgs:
+                                    continue
+
+                                seen_msgs.add(full)
+                                selected_stats.append((t, c_val))
+                                feedback_for_selected[t] = full
+
+                                if len(selected_stats) >= 3:
+                                    break
+
+                        if selected_stats:
+                            # 왼쪽: 중복 제거된 피드백 기준 TOP3
                             c_l, c_r = st.columns([1, 1.5])
                             with c_l:
-                                st.write("📉 **많이 틀린 유형**")
-                                for i_rank, (t, c_val) in enumerate(cnt[:3]):
-                                    st.write(f"{i_rank+1}위: **{t}** ({c_val}회)")
+                                st.write("📉 **많이 틀린 유형 (피드백 기준 TOP3)**")
+                                for i_rank, (t, c_val) in enumerate(selected_stats):
+                                    # 보기 좋게 "화법(말하기 전략)" → "화법: 말하기 전략"
+                                    display_title = t.replace("(", ": ").replace(")", "")
+                                    st.write(f"{i_rank+1}위: **{display_title}** ({c_val}회)")
 
-                            # 오른쪽: 맞춤 처방 (💡내용이 같은 피드백은 한 번만)
+                            # 오른쪽: 선택된 3개 유형에 대한 처방전
                             with c_r:
                                 st.info("💡 **맞춤 처방**")
-                                seen_msgs = set()
-                                shown = 0
-                                for t, c_val in cnt:
-                                    if shown >= 3:      # 최대 3개까지만 보여줌
-                                        break
-                                    msgs = get_feedback_message_list(t)
-                                    full = "\n\n---\n\n".join(msgs)   # 한 유형에 대한 전체 피드백
-
-                                    # ❗내용이 완전히 같은 피드백이면 스킵
-                                    if full in seen_msgs:
-                                        continue
-
-                                    seen_msgs.add(full)
-                                    selected_stats.append((t, c_val))
-                                    feedback_for_selected[t] = full
-
-                                    with st.expander(f"{t} 처방전", expanded=(shown == 0)):
+                                for i_rank, (t, c_val) in enumerate(selected_stats):
+                                    full = feedback_for_selected[t]
+                                    with st.expander(f"{t} 처방전", expanded=(i_rank == 0)):
                                         st.markdown(full)
-                                    shown += 1
                         else:
                             st.info("✅ 누적 취약 유형이 거의 없습니다.")
 
@@ -644,7 +647,7 @@ with tab3:
 
                         # -----------------------------
                         # 💾 포트폴리오 리포트 다운로드
-                        #    (화면에 보인 '중복 제거된' 피드백 기준)
+                        #  (위에서 선택된 selected_stats & feedback_for_selected 사용)
                         # -----------------------------
                         st.markdown("---")
                         st.write("### 💾 이 포트폴리오 화면을 리포트(HTML)로 저장하기")
@@ -654,8 +657,8 @@ with tab3:
                                 grade=pg,
                                 name=sname,
                                 my_hist_df=my_hist[['Round', 'Score', 'Wrong_Types']],
-                                weakness_stats=selected_stats,            # 중복 제거된 타입들
-                                feedback_markdown_map=feedback_for_selected
+                                weakness_stats=selected_stats,              # 피드백 기준 TOP3
+                                feedback_markdown_map=feedback_for_selected # 같은 내용 그대로
                             )
 
                             st.download_button(
