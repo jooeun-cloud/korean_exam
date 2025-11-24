@@ -1029,7 +1029,7 @@ with tab3:
             if not msgs:
                 msgs = get_feedback_message_list(t, use_general=True)
             # 타입 t에 대한 피드백(여러 개일 수 있으므로 join)
-            full_md = "\n".join(get_feedback_message_list(t))
+            full_md = "\n".join(msgs)
 
             if full_md in seen_msgs:
                 continue
@@ -1060,7 +1060,7 @@ with tab3:
                     msgs = get_feedback_message_list(t, use_general=False)
                     if not msgs:
                         msgs = get_feedback_message_list(t, use_general=True)
-                    full_md = "\n".join(get_feedback_message_list(t))
+                    full_md = "\n".join(msgs)
                     feedback_map[t] = full_md
                     display_title = str(t).replace("(", ": ").replace(")", "")
                     with st.expander(f"{display_title} 처방전", expanded=(idx == 0)):
