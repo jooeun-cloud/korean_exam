@@ -128,6 +128,110 @@ def create_report_html(grade, round_name, name, score, rank, total_students, wro
     </html>
     """
 
+def create_portfolio_html(grade, name, my_hist_df, weakness_stats, feedback_markdown_map):
+    """
+    grade: 학년 문자열 (예: '중 1학년')
+    name:  학생 이름
+    my_hist_df: 해당 학생 기록 df (Round, Score, Wrong_Types 등 포함)
+    weakness_stats: [(유형명, 횟수), ...] 형태 (보통 TOP3)
+    feedback_markdown_map: {유형명: 피드백_마크다운_문자열}
+    """
+    now = datetime.now().strftime("%Y년 %m월 %d일 %H시 %M분")
+
+    # 1) 점수 추이 테이블 HTML
+    history_rows = ""
+    for _, row in my_hist_df.iterrows():
+        history_rows += f"""
+        <tr>
+            <td>{row['Round']}</td>
+            <td>{row['Score']}</td>
+            <td>{row.get('Wrong_Types', '')}</td>
+        </tr>
+        """
+
+    # 2) 취약 유형 TOP3 테이블
+    weakness_rows = ""
+    for t, c in weakness_stats:
+        weakness_rows += f"""
+        <tr>
+            <td>{t}</td>
+            <td>{c}회</td>
+        </tr>
+        """
+
+    # 3) 피드백(마크다운 → 간단 HTML 처리)
+    feedback_sections = ""
+    for t, _ in weakness_stats:
+        md = feedback_markdown_map.get(t, "").strip()
+        # 줄바꿈만 <br>로 바꿔서 단순 렌더링
+        html_body = md.replace("\n", "<br>")
+        feedback_sections += f"""
+        <div class="feedback-card">
+            <div class="card-header">
+                <span class="card-title">{t}</span>
+            </div>
+            <div class="card-body">{html_body}</div>
+        </div>
+        """
+
+    return f"""
+    <!DOCTYPE html>
+    <html lang="ko">
+    <head>
+        <meta charset="UTF-8">
+        <title>{grade} {name} 포트폴리오 리포트</title>
+        <style>
+            body {{ font-family: 'Malgun Gothic', sans-serif; padding: 20px; color: #333; }}
+            h1 {{ text-align: center; border-bottom: 3px solid #444; padding-bottom: 20px; margin-bottom: 30px; }}
+            h2 {{ margin-top: 30px; border-bottom: 2px solid #999; padding-bottom: 8px; }}
+            table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
+            th, td {{ border: 1px solid #999; padding: 8px; text-align: center; font-size: 13px; }}
+            th {{ background-color: #f4f4f4; }}
+            .feedback-card {{ border: 1px solid #999; margin-top: 15px; page-break-inside: avoid; }}
+            .card-header {{ background-color: #eee; padding: 8px 12px; border-bottom: 1px solid #ccc; }}
+            .card-title {{ font-weight: bold; }}
+            .card-body {{ padding: 12px; font-size: 13px; line-height: 1.6; }}
+            .meta {{ font-size: 12px; color: #666; text-align:right; margin-bottom: 10px; }}
+        </style>
+    </head>
+    <body>
+        <h1>📈 {grade} {name} 포트폴리오 리포트</h1>
+        <div class="meta">생성 시각: {now}</div>
+
+        <h2>1️⃣ 응시 기록 요약</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>회차</th>
+                    <th>점수</th>
+                    <th>오답 유형</th>
+                </tr>
+            </thead>
+            <tbody>
+                {history_rows}
+            </tbody>
+        </table>
+
+        <h2>2️⃣ 누적 취약 유형 TOP3</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>유형</th>
+                    <th>누적 오답 횟수</th>
+                </tr>
+            </thead>
+            <tbody>
+                {weakness_rows}
+            </tbody>
+        </table>
+
+        <h2>3️⃣ 유형별 맞춤 처방</h2>
+        {feedback_sections}
+    </body>
+    </html>
+    """
+
+
 # --- [3] 구글 시트 연결 (학생 답안용) ---
 def get_student_sheet():
     if "gcp_service_account" not in st.secrets: return None
@@ -445,6 +549,7 @@ with tab2:
             with res_tabs[i]: render_res(g)
 
 # [탭 3] 종합 기록부
+# [탭 3] 종합 기록부
 with tab3:
     st.header("📈 포트폴리오")
     if not is_admin:
@@ -480,10 +585,13 @@ with tab3:
                         st.write("### 2️⃣ 누적 취약점 분석 (TOP 3)")
                         all_w = []
                         for i, r in my_hist.iterrows():
-                            if str(r['Wrong_Types']).strip(): all_w.extend(str(r['Wrong_Types']).split(" | "))
+                            if str(r['Wrong_Types']).strip():
+                                all_w.extend(str(r['Wrong_Types']).split(" | "))
                         
+                        # 🔹 여기서부터 살짝 수정
+                        from collections import Counter
+                        cnt = []
                         if all_w:
-                            from collections import Counter
                             cnt = Counter(all_w).most_common()
                             c_l, c_r = st.columns([1, 1.5])
                             with c_l:
@@ -492,17 +600,53 @@ with tab3:
                                     st.write(f"{i+1}위: **{t}** ({c}회)")
                             with c_r:
                                 st.info("💡 **맞춤 처방**")
-                                seen = set()
+                                # 리포트 생성을 위해 TOP3 피드백을 모아둠
+                                feedback_for_top3 = {}
                                 shown = 0
                                 for i, (t, c) in enumerate(cnt):
-                                    if shown >= 3: break
+                                    if shown >= 3:
+                                        break
                                     msgs = get_feedback_message_list(t)
                                     full = "\n\n---\n\n".join(msgs)
-                                    if full not in seen:
-                                        with st.expander(f"{t} 처방전", expanded=(shown==0)):
-                                            st.markdown(full)
-                                        seen.add(full)
-                                        shown += 1
+                                    feedback_for_top3[t] = full
+                                    with st.expander(f"{t} 처방전", expanded=(shown==0)):
+                                        st.markdown(full)
+                                    shown += 1
+                        else:
+                            cnt = []
+                            feedback_for_top3 = {}
+                            st.info("✅ 누적 취약 유형이 거의 없습니다.")
+                        
                         st.dataframe(my_hist[['Round', 'Score', 'Wrong_Types']])
-                    else: st.warning("기록 없음")
-                except Exception as e: st.error(f"오류: {e}")
+                        
+                        # 🔻🔻🔻 여기부터가 새로 추가되는 부분 🔻🔻🔻
+                        st.markdown("---")
+                        st.write("### 💾 이 포트폴리오 화면을 리포트(HTML)로 저장하기")
+
+                        # TOP3 데이터가 있을 때만 리포트 생성
+                        if cnt:
+                            # TOP3만 잘라서 전달
+                            top3_stats = cnt[:3]
+                            html_report = create_portfolio_html(
+                                grade=pg,
+                                name=sname,
+                                my_hist_df=my_hist[['Round', 'Score', 'Wrong_Types']],
+                                weakness_stats=top3_stats,
+                                feedback_markdown_map=feedback_for_top3
+                            )
+
+                            st.download_button(
+                                "📥 포트폴리오 리포트 HTML 다운로드",
+                                html_report,
+                                file_name=f"portfolio_{pg}_{sname}.html",
+                                mime="text/html",
+                                key=f"dl_port_{pg}_{in_id}"
+                            )
+                        else:
+                            st.info("현재 누적 취약 유형 데이터가 없어 리포트 다운로드는 생략됩니다.")
+                        # 🔺🔺🔺 새 코드 끝 🔺🔺🔺
+
+                    else:
+                        st.warning("기록 없음")
+                except Exception as e:
+                    st.error(f"오류: {e}")
