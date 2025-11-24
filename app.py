@@ -599,142 +599,142 @@ with tab2:
     res_tabs = st.tabs(active_grades)
 
     def render_result(grade):
-    rounds = list(EXAM_DB[grade].keys())
-    c1, c2 = st.columns(2)
-    chk_rd = c1.selectbox("회차", rounds, key=f"res_r_{grade}")
-    chk_id = c2.text_input("학번", key=f"res_i_{grade}")
+        rounds = list(EXAM_DB[grade].keys())
+        c1, c2 = st.columns(2)
+        chk_rd = c1.selectbox("회차", rounds, key=f"res_r_{grade}")
+        chk_id = c2.text_input("학번", key=f"res_i_{grade}")
     
-    if st.button("조회", key=f"res_b_{grade}"):
+        if st.button("조회", key=f"res_b_{grade}"):
         # 👉 학생 데이터 로딩 (너 지금 쓰는 방식 그대로면 여기만 df 만드는 부분 맞춰주면 됨)
-        sheet = get_student_sheet()
-        if sheet:
-            try:
-                recs = sheet.get_all_records()
-                df = pd.DataFrame(recs)
-                df['Grade'] = df['Grade'].astype(str).str.strip()
-                df['Round'] = df['Round'].astype(str).str.strip()
-                df['ID'] = df['ID'].astype(str)
-
-                def norm(v):
-                    try:
-                        return str(int(v))
-                    except:
-                        return str(v).strip()
-
-                df['ID_Clean'] = df['ID'].apply(norm)
-                in_id = norm(chk_id)
-                
-                my_data = df[
-                    (df['Grade'] == str(grade)) &
-                    (df['Round'] == str(chk_rd)) &
-                    (df['ID_Clean'] == in_id)
-                ]
-                
-                if not my_data.empty:
-                    last_row = my_data.iloc[-1]
+            sheet = get_student_sheet()
+            if sheet:
+                try:
+                    recs = sheet.get_all_records()
+                    df = pd.DataFrame(recs)
+                    df['Grade'] = df['Grade'].astype(str).str.strip()
+                    df['Round'] = df['Round'].astype(str).str.strip()
+                    df['ID'] = df['ID'].astype(str)
+    
+                    def norm(v):
+                        try:
+                            return str(int(v))
+                        except:
+                            return str(v).strip()
+    
+                    df['ID_Clean'] = df['ID'].apply(norm)
+                    in_id = norm(chk_id)
                     
-                    r_data = df[(df['Grade'] == str(grade)) & (df['Round'] == str(chk_rd))]
-                    rank = r_data[r_data['Score'] > last_row['Score']].shape[0] + 1
-                    total = len(r_data)
-                    pct = (rank / total) * 100
+                    my_data = df[
+                        (df['Grade'] == str(grade)) &
+                        (df['Round'] == str(chk_rd)) &
+                        (df['ID_Clean'] == in_id)
+                    ]
                     
-                    st.divider()
-                    st.subheader(f"📢 {grade} {last_row['Name']}님의 결과")
-                    m1, m2, m3 = st.columns(3)
-                    m1.metric("점수", f"{int(last_row['Score'])}")
-                    m2.metric("등수", f"{rank} / {total}")
-                    m3.metric("상위", f"{pct:.1f}%")
-                    
-                    w_q_str = str(last_row.get('Wrong_Questions', ''))
-                    w_nums = [int(x.strip()) for x in w_q_str.split(",") if x.strip().isdigit()] if w_q_str != "없음" else []
-                    
-                    st.markdown("---")
-                    if w_nums:
-                        st.error(f"❌ **틀린 문제:** {w_q_str}번")
-                    else:
-                        st.success("만점입니다!")
-                    
-                    # ================================
-                    # 🔒 여기부터 관리자 상세 피드백
-                    # ================================
-                    if is_admin:
-                        st.info("🔒 상세 분석 (관리자 전용)")
-
-                        curr_db = EXAM_DB[grade][chk_rd]
-
-                        # 1) 동일한 피드백 내용끼리 묶기: msg(피드백 문자열) -> [문항 번호 리스트]
-                        feedback_group = {}
-
-                        for q in w_nums:
-                            if q not in curr_db:
-                                continue
-                            qt = curr_db[q]['type']          # 이 문항의 Type (예: "화법(강연-말하기 전략)")
-                            msgs = get_feedback_message_list(qt)
-
-                            for msg in msgs:
-                                key = msg.strip()
-                                if key not in feedback_group:
-                                    feedback_group[key] = []
-                                if q not in feedback_group[key]:
-                                    feedback_group[key].append(q)
-
-                        # 2) 화면에 출력
-                        if feedback_group:
-                            st.write("### 💡 유형별 상세 피드백")
-
-                            for i, (msg, nums) in enumerate(feedback_group.items()):
-                                nums = sorted(nums)
-                                n_txt = ", ".join(map(str, nums))
-
-                                raw = msg.strip()
-                                # 제목 / 본문 분리 (### 첫 줄을 제목으로 사용)
-                                if raw.startswith("###"):
-                                    first_line, *rest = raw.split("\n", 1)
-                                    title = first_line.replace("###", "").strip()
-                                else:
-                                    title = "상세 피드백"
-
-                                label = f"❌ **{title}**  (틀린 번호: {n_txt}번)"
-
-                                with st.expander(label, expanded=(i == 0)):
-                                    st.markdown(msg)
-
-                        # 3) 성적표(html) 다운로드용 매핑 (제목 -> 문항 번호 / 메시지)
-                        report_map = {}
-                        title_to_msg = {}
-                        for msg, nums in feedback_group.items():
-                            t = msg.strip().split('\n')[0].replace("###", "").strip() if "###" in msg else "기타"
-                            report_map[t] = nums
-                            title_to_msg[t] = msg
-
+                    if not my_data.empty:
+                        last_row = my_data.iloc[-1]
+                        
+                        r_data = df[(df['Grade'] == str(grade)) & (df['Round'] == str(chk_rd))]
+                        rank = r_data[r_data['Score'] > last_row['Score']].shape[0] + 1
+                        total = len(r_data)
+                        pct = (rank / total) * 100
+                        
+                        st.divider()
+                        st.subheader(f"📢 {grade} {last_row['Name']}님의 결과")
+                        m1, m2, m3 = st.columns(3)
+                        m1.metric("점수", f"{int(last_row['Score'])}")
+                        m2.metric("등수", f"{rank} / {total}")
+                        m3.metric("상위", f"{pct:.1f}%")
+                        
+                        w_q_str = str(last_row.get('Wrong_Questions', ''))
+                        w_nums = [int(x.strip()) for x in w_q_str.split(",") if x.strip().isdigit()] if w_q_str != "없음" else []
+                        
                         st.markdown("---")
-                        st.write("### 💾 저장")
-
-                        rpt = create_report_html(
-                            grade,
-                            chk_rd,
-                            last_row['Name'],
-                            last_row['Score'],
-                            rank,
-                            total,
-                            report_map,
-                            lambda x: title_to_msg.get(x, "")
-                        )
-
-                        st.download_button(
-                            "📥 다운로드",
-                            rpt,
-                            file_name="report.html",
-                            mime="text/html",
-                            key=f"d_{grade}_{chk_id}"
-                        )
+                        if w_nums:
+                            st.error(f"❌ **틀린 문제:** {w_q_str}번")
+                        else:
+                            st.success("만점입니다!")
+                        
+                        # ================================
+                        # 🔒 여기부터 관리자 상세 피드백
+                        # ================================
+                        if is_admin:
+                            st.info("🔒 상세 분석 (관리자 전용)")
+    
+                            curr_db = EXAM_DB[grade][chk_rd]
+    
+                            # 1) 동일한 피드백 내용끼리 묶기: msg(피드백 문자열) -> [문항 번호 리스트]
+                            feedback_group = {}
+    
+                            for q in w_nums:
+                                if q not in curr_db:
+                                    continue
+                                qt = curr_db[q]['type']          # 이 문항의 Type (예: "화법(강연-말하기 전략)")
+                                msgs = get_feedback_message_list(qt)
+    
+                                for msg in msgs:
+                                    key = msg.strip()
+                                    if key not in feedback_group:
+                                        feedback_group[key] = []
+                                    if q not in feedback_group[key]:
+                                        feedback_group[key].append(q)
+    
+                            # 2) 화면에 출력
+                            if feedback_group:
+                                st.write("### 💡 유형별 상세 피드백")
+    
+                                for i, (msg, nums) in enumerate(feedback_group.items()):
+                                    nums = sorted(nums)
+                                    n_txt = ", ".join(map(str, nums))
+    
+                                    raw = msg.strip()
+                                    # 제목 / 본문 분리 (### 첫 줄을 제목으로 사용)
+                                    if raw.startswith("###"):
+                                        first_line, *rest = raw.split("\n", 1)
+                                        title = first_line.replace("###", "").strip()
+                                    else:
+                                        title = "상세 피드백"
+    
+                                    label = f"❌ **{title}**  (틀린 번호: {n_txt}번)"
+    
+                                    with st.expander(label, expanded=(i == 0)):
+                                        st.markdown(msg)
+    
+                            # 3) 성적표(html) 다운로드용 매핑 (제목 -> 문항 번호 / 메시지)
+                            report_map = {}
+                            title_to_msg = {}
+                            for msg, nums in feedback_group.items():
+                                t = msg.strip().split('\n')[0].replace("###", "").strip() if "###" in msg else "기타"
+                                report_map[t] = nums
+                                title_to_msg[t] = msg
+    
+                            st.markdown("---")
+                            st.write("### 💾 저장")
+    
+                            rpt = create_report_html(
+                                grade,
+                                chk_rd,
+                                last_row['Name'],
+                                last_row['Score'],
+                                rank,
+                                total,
+                                report_map,
+                                lambda x: title_to_msg.get(x, "")
+                            )
+    
+                            st.download_button(
+                                "📥 다운로드",
+                                rpt,
+                                file_name="report.html",
+                                mime="text/html",
+                                key=f"d_{grade}_{chk_id}"
+                            )
+                        else:
+                            st.warning("🔒 상세 분석과 성적표는 선생님만 볼 수 있습니다.")
+    
                     else:
-                        st.warning("🔒 상세 분석과 성적표는 선생님만 볼 수 있습니다.")
-
-                else:
-                    st.error("기록 없음")
-            except Exception as e:
-                st.error(f"오류: {e}")
+                        st.error("기록 없음")
+                except Exception as e:
+                    st.error(f"오류: {e}")
     for i, g in enumerate(active_grades):
         with res_tabs[i]:
             render_result(g)
