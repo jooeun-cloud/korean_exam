@@ -74,22 +74,23 @@ with st.sidebar:
                 st.session_state["is_superadmin"] = (admin_info["role"] == "superadmin")
 
                 st.success(f"✅ {admin_id_input} 로그인 성공")
-                st.experimental_rerun()
+                # 🔁 강제 새로고침 대체
+                st.session_state["_rerun"] = True
+                st.stop()
             else:
                 st.error("❌ ID 또는 비밀번호가 올바르지 않습니다.")
-
     else:
         role_label = "최종관리자" if st.session_state["is_superadmin"] else "일반 관리자"
         st.success(f"접속 계정: {st.session_state['admin_id']}")
         st.caption(f"권한 : {role_label}")
-        
+
         st.markdown("---")
-        
+
         if st.button("🔄 문제 DB 새로고침"):
             st.cache_data.clear()
             st.session_state["_rerun"] = True
             st.stop()
-            
+
         if st.button("로그아웃"):
             for k in ["is_authenticated", "admin_id", "is_superadmin"]:
                 st.session_state.pop(k, None)
