@@ -82,18 +82,19 @@ with st.sidebar:
         role_label = "최종관리자" if st.session_state["is_superadmin"] else "일반 관리자"
         st.success(f"접속 계정: {st.session_state['admin_id']}")
         st.caption(f"권한 : {role_label}")
-
+        
         st.markdown("---")
+        
         if st.button("🔄 문제 DB 새로고침"):
-    st.cache_data.clear()
-    st.session_state["_rerun"] = True
-    st.stop()
-    if st.button("로그아웃"):
-        for k in ["is_authenticated", "admin_id", "is_superadmin"]:
-            st.session_state.pop(k, None)
-        st.session_state["_rerun"] = True
-        st.stop()
-
+            st.cache_data.clear()
+            st.session_state["_rerun"] = True
+            st.stop()
+            
+        if st.button("로그아웃"):
+            for k in ["is_authenticated", "admin_id", "is_superadmin"]:
+                st.session_state.pop(k, None)
+            st.session_state["_rerun"] = True
+            st.stop()
 # 로그인 안 되어 있으면 앱 중단
 if not st.session_state.get("is_authenticated", False):
     st.warning("이 시스템은 관리자 전용입니다. 왼쪽에서 로그인해 주세요.")
