@@ -922,6 +922,6 @@ with tab3:
             "📥 포트폴리오 다운로드",
             html_bytes,
             file_name=f"{name}_portfolio.html",
-            mime="text/html; charset=utf-8"
+            mime="text/html; charset=utf-8",
             key=f"dl_port_{pg}_{in_id}"
         )
