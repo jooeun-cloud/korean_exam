@@ -650,7 +650,7 @@ with tab3:
                         #  (위에서 선택된 selected_stats & feedback_for_selected 사용)
                         # -----------------------------
                         st.markdown("---")
-                        st.write("### 💾 이 포트폴리오 화면을 리포트(HTML)로 저장하기")
+                        st.write("### 💾 포트폴리오 저장하기")
 
                         if selected_stats:
                             html_report = create_portfolio_html(
@@ -662,7 +662,7 @@ with tab3:
                             )
 
                             st.download_button(
-                                "📥 포트폴리오 리포트 HTML 다운로드",
+                                "📥 포트폴리오 리포트 다운로드",
                                 html_report,
                                 file_name=f"portfolio_{pg}_{sname}.html",
                                 mime="text/html",
