@@ -1096,3 +1096,61 @@ with tab3:
             )
         else:
             st.info("저장할 취약 유형 데이터가 없습니다.")
+        # --------------------------------
+        # 4) (최고관리자 전용) 관리자별 입력 현황
+        # --------------------------------
+        if is_superadmin:
+            st.markdown("---")
+            st.subheader("👀 관리자별 입력 현황 (최고관리자 전용)")
+    
+            sheet2 = get_student_sheet()
+            if not sheet2:
+                st.error("시트 오류")
+            else:
+                df_all = pd.DataFrame(sheet2.get_all_records())
+    
+                if "AdminID" not in df_all.columns:
+                    st.info("⚠ AdminID 컬럼이 없어 관리자별 집계를 할 수 없습니다.")
+                else:
+                    # 문자열 정리
+                    df_all["AdminID"] = df_all["AdminID"].astype(str).str.strip()
+                    df_all["Grade"] = df_all["Grade"].astype(str).str.strip()
+                    df_all["ID"] = df_all["ID"].astype(str).str.strip()
+                    df_all["Name"] = df_all["Name"].astype(str).str.strip()
+                    df_all["Round"] = df_all["Round"].astype(str).str.strip()
+    
+                    # 날짜 컬럼 이름이 Date인지 Timestamp인지 애매할 수 있으니 처리
+                    date_col = None
+                    for cand in ["Date", "Timestamp", "CreatedAt"]:
+                        if cand in df_all.columns:
+                            date_col = cand
+                            break
+    
+                    # 관리자별 · 학생별 집계
+                    group_cols = ["AdminID", "Grade", "ID", "Name"]
+                    agg_dict = {"Round": "nunique"}
+                    if date_col:
+                        agg_dict[date_col] = "max"
+    
+                    summary = df_all.groupby(group_cols).agg(agg_dict).reset_index()
+                    summary = summary.rename(columns={
+                        "Round": "응시회차수"
+                    })
+                    if date_col:
+                        summary = summary.rename(columns={date_col: "최근응시일"})
+    
+                    # 관리자 선택
+                    admin_list = sorted(summary["AdminID"].unique())
+                    sel_admin = st.selectbox("관리자 선택", admin_list, key="admin_summary_sel")
+    
+                    view = summary[summary["AdminID"] == sel_admin].copy()
+                    view = view.sort_values(["Grade", "ID"])
+    
+                    st.write(f"**{sel_admin}** 관리자가 입력한 학생 수: **{view.shape[0]}명**")
+    
+                    st.dataframe(
+                        view[
+                            ["Grade", "ID", "Name", "응시회차수"]
+                            + (["최근응시일"] if "최근응시일" in view.columns else [])
+                        ]
+                    )
