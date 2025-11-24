@@ -846,6 +846,7 @@ with tab2:
 with tab3:
     st.header("포트폴리오")
 
+    # 학년 / 학번 입력
     pg = st.selectbox("학년", active_grades)
     pid = st.text_input("학번")
 
@@ -856,17 +857,21 @@ with tab3:
             st.error("시트 오류")
             st.stop()
 
+        # 전체 기록 불러오기
         df = pd.DataFrame(sheet.get_all_records())
 
+        # AdminID 컬럼이 없을 수도 있으니 안전하게 처리
         df["AdminID"] = df.get("AdminID", "").astype(str)
 
+        # 최종관리자가 아니면, 자신의 AdminID로만 필터
         if not is_superadmin:
             df = df[df["AdminID"] == current_admin]
 
         df["ID"] = df["ID"].astype(str).str.strip()
         df["Grade"] = df["Grade"].astype(str).str.strip()
 
-        my_hist = df[(df["Grade"]==pg) & (df["ID"]==pid)]
+        # 해당 학생의 기록만 추출
+        my_hist = df[(df["Grade"] == pg) & (df["ID"] == pid)]
 
         if my_hist.empty:
             st.warning("기록 없음")
@@ -874,54 +879,97 @@ with tab3:
 
         name = my_hist.iloc[-1]["Name"]
 
-        st.success(f"{name} 성장 기록")
+        st.success(f"{pg} {name} 성장 기록")
 
+        # 점수 추이 차트
         chart = alt.Chart(my_hist).mark_line(point=True).encode(
             x="Round",
             y="Score"
         )
         st.altair_chart(chart, use_container_width=True)
 
+        # -----------------------------
+        # 1) 누적 오답 유형 집계
+        # -----------------------------
         all_wrong = []
         for _, r in my_hist.iterrows():
-            if r["Wrong_Types"]:
-                all_wrong += str(r["Wrong_Types"]).split(" | ")
+            wt = str(r.get("Wrong_Types", "")).strip()
+            if wt:
+                all_wrong += wt.split(" | ")
 
         from collections import Counter
-        cnt = Counter(all_wrong).most_common()
+        cnt = Counter(all_wrong).most_common() if all_wrong else []
 
-        selected = []
-        seen = set()
+        # -----------------------------
+        # 2) 피드백 내용 기준으로 중복 제거된 TOP3 선택
+        #    (같은 내용의 피드백이면 한 번만)
+        # -----------------------------
+        selected = []      # [(유형명, 횟수), ...]
+        seen_msgs = set()  # 피드백 전체 문자열 기준 중복 체크
 
         for t, c in cnt:
-            msg = "\n".join(get_feedback_message_list(t))
-            if msg not in seen:
-                seen.add(msg)
-                selected.append((t, c))
-            if len(selected) == 3:
+            # 타입 t에 대한 피드백(여러 개일 수 있으므로 join)
+            full_md = "\n".join(get_feedback_message_list(t))
+
+            if full_md in seen_msgs:
+                continue
+
+            seen_msgs.add(full_md)
+            selected.append((t, c))
+
+            if len(selected) >= 3:
                 break
 
-        st.markdown("### 취약 유형")
-        feedback_map = {}
+        st.markdown("### 취약 유형 (피드백 기준 TOP3)")
 
-        for t, c in selected:
-            st.write(f"{t} ({c}회)")
-            full = "\n".join(get_feedback_message_list(t))
-            feedback_map[t] = full
-            with st.expander(t):
-                st.markdown(full)
+        feedback_map = {}  # {유형명: 피드백_마크다운}
 
-        # ✅ HTML 리포트 다운로드
-        html = f"<h1>{pg} {name} 포트폴리오</h1>"
+        if selected:
+            # 왼쪽: 유형 + 횟수, 오른쪽: 상세 피드백
+            c_left, c_right = st.columns([1, 1.5])
 
-        for t, c in selected:
-            html += f"<h3>{t} ({c})</h3><p>{feedback_map[t]}</p>"
+            with c_left:
+                for t, c in selected:
+                    # 보기 좋게 "화법(말하기 전략)" → "화법: 말하기 전략"
+                    display_title = str(t).replace("(", ": ").replace(")", "")
+                    st.write(f"- **{display_title}** ({c}회)")
 
-        html_bytes = html_report.encode("utf-8")
-        st.download_button(
-            "📥 포트폴리오 다운로드",
-            html_bytes,
-            file_name=f"{name}_portfolio.html",
-            mime="text/html; charset=utf-8",
-            key=f"dl_port_{pg}_{in_id}"
-        )
+            with c_right:
+                st.info("💡 유형별 상세 피드백")
+                for idx, (t, c) in enumerate(selected):
+                    full_md = "\n".join(get_feedback_message_list(t))
+                    feedback_map[t] = full_md
+                    display_title = str(t).replace("(", ": ").replace(")", "")
+                    with st.expander(f"{display_title} 처방전", expanded=(idx == 0)):
+                        st.markdown(full_md)
+
+        else:
+            st.info("✅ 누적 취약 유형이 거의 없습니다.")
+
+        # -----------------------------
+        # 3) 포트폴리오 HTML 리포트 다운로드
+        # -----------------------------
+        st.markdown("---")
+        st.write("### 📥 포트폴리오 리포트 다운로드")
+
+        if selected:
+            # create_portfolio_html 사용 (미리 정의해 둔 함수)
+            html_report = create_portfolio_html(
+                grade=pg,
+                name=name,
+                my_hist_df=my_hist[['Round', 'Score', 'Wrong_Types']],
+                weakness_stats=selected,
+                feedback_markdown_map=feedback_map
+            )
+
+            html_bytes = html_report.encode("utf-8")
+
+            st.download_button(
+                "📥 포트폴리오 다운로드",
+                html_bytes,
+                file_name=f"{name}_portfolio.html",
+                mime="text/html; charset=utf-8",
+                key=f"dl_port_{pg}_{pid}"
+            )
+        else:
+            st.info("저장할 취약 유형 데이터가 없습니다.")
