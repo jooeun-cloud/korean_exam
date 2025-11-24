@@ -159,13 +159,11 @@ def create_portfolio_html(grade, name, my_hist_df, weakness_stats, feedback_mark
         </tr>
         """
 
-    # 3) 피드백(마크다운 → 간단 HTML 처리)
-    # 3) 피드백(마크다운 → 제목 / 본문 분리)
+# 3) 피드백(마크다운 → 제목 / 본문 분리)
 feedback_sections = ""
 for t, _ in weakness_stats:
     md = feedback_markdown_map.get(t, "").strip()
 
-    # ✅ 제목 / 본문 분리 처리
     if md.startswith("###"):
         parts = md.split("\n", 1)
         title_txt = parts[0].replace("###", "").strip()
@@ -184,8 +182,6 @@ for t, _ in weakness_stats:
         <div class="card-body">{html_body}</div>
     </div>
     """
-    
-    return f"""
     <!DOCTYPE html>
     <html lang="ko">
     <head>
