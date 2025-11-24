@@ -152,39 +152,40 @@ def create_portfolio_html(grade, name, my_hist_df, weakness_stats, feedback_mark
     # 2) 취약 유형 TOP3 테이블
     weakness_rows = ""
     for t, c in weakness_stats:
+        display_title = t.replace("(", ": ").replace(")", "")
         weakness_rows += f"""
         <tr>
-            <td>{t}</td>
+            <td>{display_title}</td>
             <td>{c}회</td>
         </tr>
         """
 
-# 3) 피드백(마크다운 → 제목 / 본문 분리)
-feedback_sections = ""
-for t, _ in weakness_stats:
-    md = feedback_markdown_map.get(t, "").strip()
+    # 3) 피드백(마크다운 → 제목 / 본문 분리)
+    feedback_sections = ""
+    for t, _ in weakness_stats:
+        md = feedback_markdown_map.get(t, "").strip()
 
-    if md.startswith("###"):
-        parts = md.split("\n", 1)
-        title_txt = parts[0].replace("###", "").strip()
-        body_txt = parts[1] if len(parts) > 1 else ""
-    else:
-        title_txt = t
-        body_txt = md
+        if md.startswith("###"):
+            parts = md.split("\n", 1)
+            title_txt = parts[0].replace("###", "").strip()
+            body_txt = parts[1] if len(parts) > 1 else ""
+        else:
+            title_txt = t
+            body_txt = md
 
-    html_body = body_txt.replace("\n", "<br>")
+        html_body = body_txt.replace("\n", "<br>")
 
-    feedback_sections += f"""
-    <div class="feedback-card">
-        <div class="card-header">
-            <span class="card-title">{title_txt}</span>
+        feedback_sections += f"""
+        <div class="feedback-card">
+            <div class="card-header">
+                <span class="card-title">{title_txt}</span>
+            </div>
+            <div class="card-body">{html_body}</div>
         </div>
-        <div class="card-body">{html_body}</div>
-    </div>
-    """
+        """
 
-# ✅ 여기부터가 중요 (반드시 for문 밖)
-return f"""
+    # ✅ 여기부터는 for문 밖, 함수 안
+    return f"""
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -241,7 +242,6 @@ return f"""
 </body>
 </html>
 """
-
 # --- [3] 구글 시트 연결 (학생 답안용) ---
 def get_student_sheet():
     if "gcp_service_account" not in st.secrets: return None
