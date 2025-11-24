@@ -449,60 +449,60 @@ TLCD의 구조와 작동 원리를 글로만 읽고, **‘흔들림 → 액체 �
 3. 성어 문제를 풀 때는 단어 뜻만 보지 말고, **‘누가 누구에게 무엇을 해서 어떤 꼴이 되었는가’**를 기준으로 판단하도록 지도하세요."""
 }
 
-def get_feedback_message_list(question_type):
+def get_feedback_message_list(question_type, use_general=True):
     messages = []
     q = str(question_type).strip()
 
     if q in FEEDBACK_BY_TYPE:
         messages.append(FEEDBACK_BY_TYPE[q])
 
-    if "문법" in question_type or "문장" in question_type:
+    if use_general and "문법" in question_type or "문장" in question_type:
         if "음운" not in question_type and "사전" not in question_type and "중세" not in question_type:
             messages.append("""### 🏗️ 문법: 문장의 '뼈대' 찾기
 문장 성분 분석과 조사의 쓰임을 놓쳤습니다.
 → 서술어 확인 → 필수 성분(주어·목적어·보어) 점검""")
 
-    if "사전" in question_type:
+    if use_general and "사전" in question_type:
         messages.append("""### 📖 문법: 사전 정보
 품사 / 문형 / 예문 연결이 부족합니다.
 → 품사 먼저 체크 후 예문 비교""")
 
-    if "음운" in question_type:
+    if use_general and "음운" in question_type:
         messages.append("""### 🛑 문법: 음운 변동
 ‘유형’보다 ‘환경’을 먼저 봐야 합니다.
 → 받침+자음 / 받침+모음 / ㄷ·ㅌ+이 구조 먼저 확인""")
 
-    if "철학" in question_type or "인문" in question_type:
+    if use_general and "철학" in question_type or "인문" in question_type:
         messages.append("""### 🧠 인문/철학
 사상가별 기준과 용어가 섞였습니다.
 → 공통점/차이점 표로 정리 + 키워드 한 줄 요약""")
 
-    if "경제" in question_type or "사회" in question_type:
+    if use_general and "경제" in question_type or "사회" in question_type:
         messages.append("""### 📈 사회/경제
 원인 → 과정 → 결과 흐름을 못 봤습니다.
 → 금리↑ → 소비↓ → 경기↓ 처럼 화살표 정리""")
 
-    if "소설" in question_type or "서사" in question_type:
+    if use_general and "소설" in question_type or "서사" in question_type:
         messages.append("""### 🎭 문학(산문)
 갈등 지점을 못 잡았습니다.
 → 인물관계도 + 말/행동 변화 표시""")
 
-    if "시가" in question_type:
+    if use_general and "시가" in question_type:
         messages.append("""### 🌙 문학(운문)
 감정어가 아니라 ‘관계/상황’을 봐야 합니다.
 → 화자-대상-상황 한 문장 정리""")
 
-    if "화법" in question_type:
+    if use_general and "화법" in question_type:
         messages.append("""### 🗣️ 화법
 전달 ‘방식/전략’을 못 봤습니다.
 → 강조/비교/질문/예시 표시""")
 
-    if "매체" in question_type:
+    if use_general and "매체" in question_type:
         messages.append("""### 🖥️ 매체
 기능과 효과 연결이 부족했습니다.
 → 댓글/링크/그래프 = 어떤 효과?""")
 
-    if "보기" in question_type:
+    if use_general and  "보기" in question_type:
         messages.append("""### 🔥 보기 적용
 지문 개념 → 보기 상황 번역 실패
 → 보기 단어를 지문 용어로 치환""")
@@ -669,7 +669,9 @@ with tab2:
                                 if q not in curr_db:
                                     continue
                                 qt = curr_db[q]['type']          # 이 문항의 Type (예: "화법(강연-말하기 전략)")
-                                msgs = get_feedback_message_list(qt)
+                                msgs = get_feedback_message_list(qt, use_general=False)
+                                if not msgs:
+                                    msgs = get_feedback_message_list(qt, use_general=True)
     
                                 for msg in msgs:
                                     key = msg.strip()
