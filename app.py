@@ -819,12 +819,13 @@ with tab2:
                                 report_map,
                                 lambda x: title_to_msg.get(x, "")
                             )
+                            html_bytes = rpt.encode("utf-8")
     
                             st.download_button(
                                 "📥 다운로드",
-                                rpt,
+                                html_bytes,
                                 file_name="report.html",
-                                mime="text/html",
+                                mime="text/html; charset=utf-8",
                                 key=f"d_{grade}_{chk_id}"
                             )
                         else:
@@ -916,9 +917,11 @@ with tab3:
         for t, c in selected:
             html += f"<h3>{t} ({c})</h3><p>{feedback_map[t]}</p>"
 
+        html_bytes = html_report.encode("utf-8")
         st.download_button(
             "📥 포트폴리오 다운로드",
-            html,
+            html_bytes,
             file_name=f"{name}_portfolio.html",
-            mime="text/html"
+            mime="text/html; charset=utf-8
+            key=f"dl_port_{pg}_{in_id}"
         )
