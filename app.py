@@ -546,6 +546,123 @@ def create_report_html(grade, round_name, name, score, rank, total_students, wro
 </body>
 </html>
 """
+
+def create_portfolio_html(grade, name, my_hist_df, weakness_stats, feedback_markdown_map):
+    """
+    grade: 학년 문자열 (예: '중 1학년')
+    name:  학생 이름
+    my_hist_df: 해당 학생 기록 df (Round, Score, Wrong_Types 포함)
+    weakness_stats: [(유형명, 횟수), ...]  (보통 TOP3)
+    feedback_markdown_map: {유형명: 피드백_마크다운_문자열}
+    """
+    now = datetime.now().strftime("%Y년 %m월 %d일 %H시 %M분")
+
+    # 1) 응시 기록 테이블 HTML
+    history_rows = ""
+    for _, row in my_hist_df.iterrows():
+        history_rows += f"""
+        <tr>
+            <td>{row['Round']}</td>
+            <td>{row['Score']}</td>
+            <td>{row.get('Wrong_Types', '')}</td>
+        </tr>
+        """
+
+    # 2) 누적 취약 유형 TOP3 테이블
+    weakness_rows = ""
+    for t, c in weakness_stats:
+        # 보기 좋게 "화법(말하기 전략)" → "화법: 말하기 전략"
+        display_title = str(t).replace("(", ": ").replace(")", "")
+        weakness_rows += f"""
+        <tr>
+            <td>{display_title}</td>
+            <td>{c}회</td>
+        </tr>
+        """
+
+    # 3) 유형별 맞춤 처방 (마크다운 → 제목/본문 분리 후 HTML)
+    feedback_sections = ""
+    for t, _ in weakness_stats:
+        md = str(feedback_markdown_map.get(t, "")).strip()
+
+        if md.startswith("###"):
+            parts = md.split("\n", 1)
+            title_txt = parts[0].replace("###", "").strip()
+            body_txt = parts[1] if len(parts) > 1 else ""
+        else:
+            title_txt = t
+            body_txt = md
+
+        html_body = body_txt.replace("\n", "<br>")
+
+        feedback_sections += f"""
+        <div class="feedback-card">
+            <div class="card-header">
+                <span class="card-title">{title_txt}</span>
+            </div>
+            <div class="card-body">{html_body}</div>
+        </div>
+        """
+
+    # 최종 HTML
+    return f"""
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>{grade} {name} 포트폴리오 리포트</title>
+    <style>
+        body {{ font-family: 'Malgun Gothic', sans-serif; padding: 20px; color: #333; }}
+        h1 {{ text-align: center; border-bottom: 3px solid #444; padding-bottom: 20px; margin-bottom: 30px; }}
+        h2 {{ margin-top: 30px; border-bottom: 2px solid #999; padding-bottom: 8px; }}
+        table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
+        th, td {{ border: 1px solid #999; padding: 8px; text-align: center; font-size: 13px; }}
+        th {{ background-color: #f4f4f4; }}
+        .feedback-card {{ border: 1px solid #999; margin-top: 15px; page-break-inside: avoid; }}
+        .card-header {{ background-color: #eee; padding: 8px 12px; border-bottom: 1px solid #ccc; }}
+        .card-title {{ font-weight: bold; }}
+        .card-body {{ padding: 12px; font-size: 13px; line-height: 1.6; }}
+        .meta {{ font-size: 12px; color: #666; text-align:right; margin-bottom: 10px; }}
+    </style>
+</head>
+<body>
+    <h1>📈 {grade} {name} 포트폴리오 리포트</h1>
+    <div class="meta">생성 시각: {now}</div>
+
+    <h2>1️⃣ 응시 기록 요약</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>회차</th>
+                <th>점수</th>
+                <th>오답 유형</th>
+            </tr>
+        </thead>
+        <tbody>
+            {history_rows}
+        </tbody>
+    </table>
+
+    <h2>2️⃣ 누적 취약 유형 TOP3</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>유형</th>
+                <th>누적 오답 횟수</th>
+            </tr>
+        </thead>
+        <tbody>
+            {weakness_rows}
+        </tbody>
+    </table>
+
+    <h2>3️⃣ 유형별 맞춤 처방</h2>
+    {feedback_sections}
+
+</body>
+</html>
+"""
+    
 def get_feedback_message_list(question_type, use_general=True):
     messages = []
     q = str(question_type).strip()
